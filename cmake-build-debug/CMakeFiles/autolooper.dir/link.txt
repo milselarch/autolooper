@@ -1,0 +1,1 @@
+/usr/bin/cc -g CMakeFiles/autolooper.dir/main.c.o CMakeFiles/autolooper.dir/parse_wav.c.o -o autolooper 
