@@ -9,4 +9,5 @@ add_executable(autolooper
         parse_wav.c
         parse_wav.c
         main.c
+        parse_wav.c
         parse_wav.c)

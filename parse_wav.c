@@ -239,23 +239,51 @@ void print_wav_headers(WavHeaders headers) {
     printf("EXTRA_PARAMS: %s\n", headers.extra_params);
 }
 
-/*
+long long get_max_int(unsigned int bits) {
+    long long result = 1;
+    for (int k=1; k<bits; k++) {
+        result
+    }
+}
+
 void read_frames(FILE * fp) {
     WavHeaders headers = read_wav_headers(fp);
 
     int start_index = 36 + headers.extra_params_size;
+    int raw_audio_start_index = start_index + 8;
+
     char * raw_audio_data = read_str_slice(fp, start_index + 8, headers.filesize);
     int sample_size = headers.bits_per_sample / 8;
+    // long long is at least 64 bits
+    long long max_int_val;
+
+    switch (headers.bits_per_sample) {
+        case 8:
+            max_int_val =
+            break;
+        case 16:
+            break;
+        case 32:
+            break;
+        case 64:
+            break;
+        default:
+            printf("INVALID_BITS_PER_SAMPLE");
+            exit(1);
+    }
+
     long raw_data_length = strlen(raw_audio_data);
     int num_samples = raw_data_length / sample_size;
 
     for (int k=0; k<num_samples; k++) {
-        char * raw_frame = slice_str(
-            raw_audio_data, k * sample_size, (k+1) * sample_size
+        int unscaled_frame = read_long_from_str_slice(
+            fp, raw_audio_start_index + k * sample_size,
+            raw_audio_start_index + (k+1) * sample_size, 1
         );
+
+        float
     }
 
     free(raw_audio_data);
     free_wav_headers(headers);
 }
-*/
