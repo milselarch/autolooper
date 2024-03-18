@@ -53,3 +53,5 @@ dkms.conf
 
 # editor config
 .idea/
+# python virtual environment
+venv/

@@ -39,6 +39,32 @@ void free_wav_file(WavFile wav_file) {
     free(wav_file.frames);
 }
 
+int starts_with_word(const char * text, const char * word) {
+    // checks if the text starts with word
+    int k = 0;
+
+    while (1) {
+        char text_char = text[k];
+        char word_char = word[k];
+
+        if (word_char == '\0') {
+            // word has ended, all previous chars match
+            return 1;
+        } if (text_char == '\0') {
+            // text has ended, word still has chars left
+            return 0;
+        } if (text_char != word_char) {
+            // current text char and current word char mismatch
+            return 0;
+        }
+
+        k++;
+    }
+
+    // the code should probably never reach here
+    return 0;
+}
+
 unsigned long byte_str_to_long(
     char * string, int is_little_endian, unsigned long length
 ) {
@@ -129,7 +155,7 @@ char * read_str_slice(
 
     unsigned long str_size = end_index - start_index + 1;
     char * str_slice = (char *) malloc(str_size * sizeof(char));
-    str_slice[end_index - start_index] = 0;
+    str_slice[str_size-1] = 0;
 
     for (unsigned long k=start_index; k<end_index; k++) {
         fseek(fp, (long) k, SEEK_SET);
@@ -142,7 +168,7 @@ char * read_str_slice(
         str_slice[str_slice_index] = (char) fget_result;
     }
 
-    fseek(fp, 0L, SEEK_SET);
+    // fseek(fp, 0L, SEEK_SET);
     return str_slice;
 }
 
@@ -152,12 +178,13 @@ unsigned long read_long_from_str_slice(
 ) {
     unsigned long length = end_index - start_index;
     char * raw_str_slice = read_str_slice(fp, start_index, end_index);
+    /*
     if (start_index == 24) {
         for (int k=0; k<length; k++) {
             printf("CHAR[%d]: %d\n", (int) start_index + k, (unsigned char) raw_str_slice[k]);
         }
     }
-
+    */
     unsigned long value = byte_str_to_long(raw_str_slice, is_little_endian, length);
     free(raw_str_slice);
     return value;
@@ -216,10 +243,8 @@ WavHeaders read_wav_headers(FILE * fp) {
     char * extra_params = 0;
 
     if (sub_chunk_size != 16) {
-        char * raw_extra_size = read_str_slice(fp, 36, 38);
-        extra_params_size = byte_str_to_long(raw_extra_size, 1, 2);
+        extra_params_size = read_long_from_str_slice(fp, 36, 38, 1);
         extra_params = read_str_slice(fp, 38, 38 + extra_params_size);
-        free(raw_extra_size);
     }
 
     WavHeaders headers;
@@ -299,11 +324,21 @@ WavFile read_frames(FILE * fp) {
             exit(1);
     }
 
+    printf("RAW_DATA_START_IDX: %ld\n", raw_audio_start_index);
+    printf("FILE_SIZE: %ld\n", headers.filesize);
     unsigned long raw_data_length = headers.filesize - raw_audio_start_index;
     printf("RAW_DATA_LEN %ld\n", raw_data_length);
     unsigned long num_samples = raw_data_length / sample_size;
     double * frames = (double *) malloc((num_samples + 1) * sizeof(double));
     frames[num_samples] = 0;
+
+    char * raw_audio_data = read_str_slice(fp, raw_audio_start_index, headers.filesize-1);
+    for (int k=0; k<raw_data_length-4; k++) {
+        if (starts_with_word(raw_audio_data + k, "JUNK")) {
+            printf("JUNK FOUND\n");
+            exit(1);
+        }
+    }
 
     for (int k=0; k<num_samples; k++) {
         unsigned long unscaled_frame = read_long_from_str_slice(
@@ -316,7 +351,7 @@ WavFile read_frames(FILE * fp) {
         frames[k] = scaled;
     }
 
-    // free(raw_audio_data);
+    free(raw_audio_data);
     // free_wav_headers(headers);
     WavFile wav_file;
     wav_file.headers = headers;
