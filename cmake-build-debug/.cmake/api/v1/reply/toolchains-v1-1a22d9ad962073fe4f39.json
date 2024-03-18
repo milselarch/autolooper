@@ -10,14 +10,14 @@
 				{
 					"includeDirectories" : 
 					[
-						"/usr/lib/gcc/x86_64-linux-gnu/11/include",
+						"/usr/lib/gcc/x86_64-linux-gnu/9/include",
 						"/usr/local/include",
 						"/usr/include/x86_64-linux-gnu",
 						"/usr/include"
 					],
 					"linkDirectories" : 
 					[
-						"/usr/lib/gcc/x86_64-linux-gnu/11",
+						"/usr/lib/gcc/x86_64-linux-gnu/9",
 						"/usr/lib/x86_64-linux-gnu",
 						"/usr/lib",
 						"/lib/x86_64-linux-gnu",
@@ -34,7 +34,7 @@
 					]
 				},
 				"path" : "/usr/bin/cc",
-				"version" : "11.4.0"
+				"version" : "9.4.0"
 			},
 			"language" : "C",
 			"sourceFileExtensions" : 

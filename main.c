@@ -16,5 +16,9 @@ int main(int argc, char ** argv) {
     WavHeaders headers = read_wav_headers(fp);
     print_wav_headers(headers);
     free_wav_headers(headers);
+
+    WavFile wav_file = read_frames(fp);
+    printf("NUM_FRAMES: %ld\n", wav_file.num_frames);
+    free_wav_file(wav_file);
     return 0;
 }

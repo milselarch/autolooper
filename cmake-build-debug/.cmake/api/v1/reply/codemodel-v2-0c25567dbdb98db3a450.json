@@ -49,8 +49,8 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "/home/milselarch/projects/SUTD/50.051PLC/autolooper/cmake-build-debug",
-		"source" : "/home/milselarch/projects/SUTD/50.051PLC/autolooper"
+		"build" : "/home/milselarch/projects/SUTD/50-051PLC/autolooper/cmake-build-debug",
+		"source" : "/home/milselarch/projects/SUTD/50-051PLC/autolooper"
 	},
 	"version" : 
 	{
