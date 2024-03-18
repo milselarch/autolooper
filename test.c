@@ -3,9 +3,6 @@
 #include <limits.h>
 #include <sndfile.h>
 
-const char* RYDEEN = "Rydeen_mono.flac";
-const char* INORGANIC_BEAT = "INORGANIC_BEAT_stereo.flac";
-const char* INTERCEPTION = "INTERCEPTION_stereo_hard.flac";
 const char* OUTPUT = "output.flac";
 
 int loop (const char* input_filepath, int start_time, int end_time, int min_length, const char* output_filepath) {
@@ -117,21 +114,17 @@ int loop (const char* input_filepath, int start_time, int end_time, int min_leng
     printf("%lu\n", loop_frames * info.channels);
     printf("%lu\n", end * info.channels);
     for (int k = 0; k < num_loops; k++) {
-        printf("Loop %d\n", k);
         for (unsigned int i = 0; i < loop_frames * info.channels; i++) {
-            // printf("%d\n", i);
             extended[j] = loop[i];
             j++;
         }
     }
-    printf("ok\n");
 
     /* Copy ending */
     for (unsigned int i = 0; i < ending_frames * info.channels; i++) {
         extended[j] = ending[i];
         j++;
     }
-    printf("j: %lu\n", j);
 
     /* Write buffer into new file */
     SF_INFO output_info = {0, info.samplerate, info.channels, info.format, 0, 0};
@@ -154,17 +147,13 @@ int loop (const char* input_filepath, int start_time, int end_time, int min_leng
 
 
 int main () {
-    /*
-    SF_INFO info = {0, 0, 0, 0, 0};
-    SNDFILE* f = sf_open(RYDEEN, SFM_READ, &info);
-    printf("Sample rate: %d\n", info.samplerate);
-    printf("Channels: %d\n", info.channels);
-    printf("Format: 0x%x\n", info.format);
-
-    sf_close(f);
-    */
-
-    int res = loop(INORGANIC_BEAT, 0, 77, 600, OUTPUT);
+    // int res = loop("INORGANIC_BEAT_stereo.flac", 0, 77, 600, OUTPUT);
+    // int res = loop("INTERCEPTION_stereo_hard.flac", 9, 179, 1800, OUTPUT);
+    // int res = loop("02 SEGMENT1-2 BOSS.flac", 0, 98, 600, OUTPUT);
+    // int res = loop("Let Ass Kick Together!.flac", 1, 68, 600, OUTPUT);
+    // int res = loop("23 なにみてはねる.flac", 1, 80, 1800, OUTPUT);
+    // int res = loop("15 Expert Course Stage 1.flac", 14, 42, 1800, OUTPUT);
+    int res = loop("2-06 Boss.flac", 7, 109, 1800, OUTPUT);
     if (res) {
         return 1;
     }
