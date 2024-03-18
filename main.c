@@ -19,6 +19,14 @@ int main(int argc, char ** argv) {
 
     WavFile wav_file = read_frames(fp);
     printf("NUM_FRAMES: %ld\n", wav_file.num_frames);
+
+    /*
+    double * samples = wav_file.samples;
+    for (int k=0; k<100; k++) {
+        printf("FRAME[%d]: %f\n", k, samples[k]);
+    }
+     */
+
     free_wav_file(wav_file);
     return 0;
 }
