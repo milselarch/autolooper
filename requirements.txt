@@ -1,0 +1,2 @@
+librosa==0.10.1
+matplotlib==3.8.3
