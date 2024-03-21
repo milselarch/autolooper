@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <sndfile.h>
-
-const char* OUTPUT = "output.flac";
+#include "test.h"
 
 short* read_samples (SNDFILE* f, int channels, sf_count_t offset, sf_count_t duration) {
     sf_count_t res;
@@ -12,12 +11,10 @@ short* read_samples (SNDFILE* f, int channels, sf_count_t offset, sf_count_t dur
     /* Seek to offset */
     res = sf_seek(f, offset, SEEK_SET);
     if (res == -1) {
-        /* error */
-        // printf("ERROR: %i is an invalid timestamp!\n", offset);
         return NULL;
     }
 
-    /* Save a section of the audio */
+    /* Save a section of the audio of the specified duration */
     data = (short*) malloc(duration * channels * sizeof(short));
     res = sf_readf_short(f, data, duration);
     if (res < duration) {
@@ -27,12 +24,43 @@ short* read_samples (SNDFILE* f, int channels, sf_count_t offset, sf_count_t dur
     return data;
 }
 
+unsigned int find_loop_end (short* start_sample, short* end_sample, int channels, int range) {
+    unsigned int best_offset = 0;
+    unsigned long best_score = ULONG_MAX;
+    unsigned long score;
+    unsigned int diff;
+    unsigned int i;
+    unsigned int j;
+
+    for (i = 0; i < range; i++) {
+        score = 0;
+        for (j = 0; j < range * channels; j += 100) {
+            diff = start_sample[j] - end_sample[i * channels + j];
+            score += diff * diff;
+        }
+
+        if (!score) {
+            return i;
+        }
+        else if (score < best_score) {
+            best_score = score;
+            best_offset = i;
+        }
+    }
+
+    printf("Best score: %lu\n", best_score);
+    printf("Best offset: %d\n", best_offset);
+    return best_offset;
+}
+
 void copy_samples (short* src, short* dst, unsigned int iter) {
     unsigned int i;
     for (i = 0; i < iter; i++) {
         dst[i] = src[i];
     }
 }
+
+void extend_audio ();
 
 int loop (const char* input_filepath, unsigned int start_time, unsigned int end_time,
           unsigned int min_length, const char* output_filepath) {
@@ -47,6 +75,7 @@ int loop (const char* input_filepath, unsigned int start_time, unsigned int end_
     sf_count_t start_frames = info.samplerate;
     short* start_sample = read_samples(f, info.channels, start, start_frames);
     if (start_sample == NULL) {
+        printf("ERROR: %i is an invalid timestamp!\n", start_time);
         return 1;
     }
 
@@ -54,37 +83,19 @@ int loop (const char* input_filepath, unsigned int start_time, unsigned int end_
     sf_count_t end = end_time * info.samplerate;
     short* end_sample = read_samples(f, info.channels, end, 2 * info.samplerate);
     if (end_sample == NULL) {
+        printf("ERROR: %i is an invalid timestamp!\n", end_time);
         return 1;
     }
 
     /* Find looping point */
-    int best_offset = 0;
-    unsigned long best_score = ULONG_MAX;
-    for (int i = 0; i < start_frames; i++) {
-        unsigned long score = 0;
-        for (int j = 0; j < start_frames * info.channels; j += 100) {
-            int diff = start_sample[j] - end_sample[i * info.channels + j];
-            score += diff * diff;
-        }
-        if (!score) {
-            best_offset = i;
-            break;
-        }
-        if (score < best_score) {
-            best_score = score;
-            best_offset = i;
-        }
-    }
-    printf("Best score: %lu\n", best_score);
-    printf("Best offset: %d\n", best_offset);
+    unsigned int best_offset = find_loop_end(start_sample, end_sample, info.channels, start_frames);
 
     /* Store the data for a loop */
     sf_count_t loop_frames = end + best_offset - start;
     short* loop = read_samples(f, info.channels, start, loop_frames);
 
     /* Store the data for the intro */
-    short* intro;
-    intro = read_samples(f, info.channels, 0, start);
+    short* intro = read_samples(f, info.channels, 0, start);
 
     /* Store the data for the ending */
     sf_count_t ending_frames = info.frames - end - best_offset;
@@ -135,13 +146,24 @@ int loop (const char* input_filepath, unsigned int start_time, unsigned int end_
 
 
 int main (int argc, char** argv) {
+    // if (argc < 6) {
+    //     /* TODO Print args required */
+    //     printf("Insufficient number of arguments!\n");
+    //     return 1;
+    // }
+
+    /* TODO Perform checks on input */
     int res = loop("INORGANIC_BEAT_stereo.flac", 0, 77, 600, OUTPUT);
-    // int res = loop("INTERCEPTION_stereo_hard.flac", 9, 179, 1800, OUTPUT);
-    // int res = loop("02 SEGMENT1-2 BOSS.flac", 0, 98, 600, OUTPUT);
-    // int res = loop("Let Ass Kick Together!.flac", 1, 68, 600, OUTPUT);
-    // int res = loop("23 なにみてはねる.flac", 1, 80, 1800, OUTPUT);
-    // int res = loop("15 Expert Course Stage 1.flac", 14, 42, 1800, OUTPUT);
-    // int res = loop("2-06 Boss.flac", 7, 109, 1800, OUTPUT);
+    /*
+
+    int res = loop("INTERCEPTION_stereo_hard.flac", 9, 179, 1800, OUTPUT);
+    int res = loop("02 SEGMENT1-2 BOSS.flac", 0, 98, 600, OUTPUT);
+    int res = loop("Let Ass Kick Together!.flac", 1, 68, 600, OUTPUT);
+    int res = loop("23 なにみてはねる.flac", 1, 80, 1800, OUTPUT);
+    int res = loop("15 Expert Course Stage 1.flac", 14, 42, 1800, OUTPUT);
+    int res = loop("2-06 Boss.flac", 7, 109, 1800, OUTPUT);
+    */
+    // int res = loop(argv[1], argv[2], argv[3], argv[4]);
     if (res) {
         return 1;
     }
