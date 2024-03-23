@@ -1,7 +1,14 @@
 const char* OUTPUT = "output.flac";
 
-short* read_samples (SNDFILE* f, int channels, sf_count_t offset, sf_count_t duration);
+typedef struct sound_buffer {
+    short* data;
+    sf_count_t size;
+} sndbuf;
 
-unsigned int find_loop_end (short* start_sample, short* end_sample, int channels, int range);
+int read_samples (SNDFILE* f, sndbuf* buf, int channels, sf_count_t offset, sf_count_t duration);
 
-void copy_samples (short* src, short* dst, unsigned int iter);
+sf_count_t find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels);
+
+void copy_samples (sndbuf* src_buf, short* dst);
+
+void extend_audio (sndbuf* extended_buf, sndbuf* intro_buf, sndbuf* loop_buf, sndbuf* ending_buf, unsigned int num_loops);
