@@ -87,14 +87,26 @@ int loop (const char* input_filepath, unsigned int start_time, unsigned int end_
     sndbuf start_buf, end_buf, loop_buf, intro_buf, ending_buf, extended_buf;
     int res;
     unsigned int num_loops;
+    SF_INFO info = {0, 0, 0, 0, 0, 0};
     SF_INFO output_info;
+    SNDFILE* f;
     SNDFILE* fout;
 
-    /* Used to store some file metadata, required by sf_open() */
-    SF_INFO info = {0, 0, 0, 0, 0, 0};
-
     /* Open the audio file */
-    SNDFILE* f = sf_open(input_filepath, SFM_READ, &info);
+    f = sf_open(input_filepath, SFM_READ, &info);
+    if (f == NULL) {
+        printf("ERROR: Could not open %s!\n", input_filepath);
+        return 1;
+    }
+
+    output_info.samplerate = info.samplerate;
+    output_info.channels = info.channels;
+    output_info.format = info.format;
+    fout = sf_open(output_filepath, SFM_WRITE, &output_info);
+    if (f == NULL) {
+        sf_close(f);
+        printf("ERROR: Could not open %s!\n", output_filepath);
+    }
 
     /* Save a section of the audio at the start time for comparison */
     intro_size = start_time * info.samplerate;
@@ -102,6 +114,7 @@ int loop (const char* input_filepath, unsigned int start_time, unsigned int end_
     if (res) {
         printf("ERROR: %i is an invalid timestamp!\n", start_time);
         sf_close(f);
+        sf_close(fout);
         return 1;
     }
 
@@ -112,6 +125,7 @@ int loop (const char* input_filepath, unsigned int start_time, unsigned int end_
         printf("ERROR: %i is an invalid timestamp!\n", end_time);
         free(start_buf.data);
         sf_close(f);
+        sf_close(fout);
         return 1;
     }
 
@@ -137,10 +151,6 @@ int loop (const char* input_filepath, unsigned int start_time, unsigned int end_
     extend_audio(&extended_buf, &intro_buf, &loop_buf, &ending_buf, num_loops);
 
     /* Write buffer into new file */
-    output_info.samplerate = info.samplerate;
-    output_info.channels = info.channels;
-    output_info.format = info.format;
-    fout = sf_open(output_filepath, SFM_WRITE, &output_info);
     sf_writef_short(fout, extended_buf.data, extended_buf.size / info.channels);
 
     /* Clean up */
@@ -157,19 +167,40 @@ int loop (const char* input_filepath, unsigned int start_time, unsigned int end_
 
 
 int main (int argc, char** argv) {
-        /* TODO Print args required */
-    /* if (argc < 6) {
-        printf("Insufficient number of arguments!\n");
-        return 1;
-    }
-    */
+    unsigned long start_time, end_time, min_length;
+    int res;
+    char* end_ptr;
 
-    /* TODO Perform checks on input */
-    int res = loop("INORGANIC_BEAT_stereo.flac", 0, 77, 600, OUTPUT);
-    /* int res = loop(argv[1], argv[2], argv[3], argv[4]); */
-    if (res) {
+    if (argc < 6) {
+        printf("ERROR: Insufficient number of arguments!\n");
+        printf("Usage: ./test INPUT_FILE START_TIME END_TIME MIN_LENGTH OUTPUT_FILE\n");
+        printf("START_TIME, END_TIME and MIN_LENGTH should be provided in seconds\n");
         return 1;
     }
 
-    return 0;
+    /* Perform checks on input */
+    start_time = strtoul(argv[2], &end_ptr, 10);
+    if (!start_time && end_ptr == argv[2]) {
+        printf("ERROR: Invalid start time!\n");
+        return 1;
+    }
+
+    end_time = strtoul(argv[3], &end_ptr, 10);
+    if (!end_time && end_ptr == argv[3]) {
+        printf("ERROR: Invalid end time!\n");
+        return 1;
+    }
+    if (start_time > end_time) {
+        printf("ERROR: Start time is after end time!\n");
+        return 1;
+    }
+
+    min_length = strtoul(argv[4], &end_ptr, 10);
+    if (!min_length && end_ptr == argv[4]) {
+        printf("ERROR: Invalid minimum length!\n");
+        return 1;
+    }
+
+    res = loop(argv[1], start_time, end_time, min_length, argv[5]);
+    return res;
 }
