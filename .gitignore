@@ -53,3 +53,8 @@ dkms.conf
 
 # Sound files
 *.flac
+
+# editor config
+.idea/
+# python virtual environment
+venv/
