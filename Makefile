@@ -1,2 +1,5 @@
-default: test.c
-	gcc test.c -lsndfile -o test -ansi -pedantic -Wall -Werror
+default: loop.c parse_wav.c
+	gcc loop.c parse_wav.c -o loop
+
+ansi: loop.c parse_wav.c
+	gcc loop.c parse_wav.c -o loop -ansi -pedantic -Wall -Werror
