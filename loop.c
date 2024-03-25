@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "parse_wav.c"
+#include "parse_wav.h"
 #include "loop.h"
 
 int read_samples (WavFile* wavfile, sndbuf* buf, int channels, unsigned long offset, unsigned long duration) {
@@ -167,6 +167,9 @@ int _main (int argc, char** argv) {
     unsigned long start_time, end_time, min_length;
     int res;
     char* end_ptr;
+    FILE* fp;
+    FILE* fpout;
+    WavFile f, fout;
 
     if (argc < 6) {
         printf("ERROR: Insufficient number of arguments!\n");
@@ -198,8 +201,30 @@ int _main (int argc, char** argv) {
         return 1;
     }
 
-    /* TODO update this */
-    /* res = loop(argv[1], start_time, end_time, min_length, argv[5]); */
+    fp = fopen(argv[1], "r");
+    if (fp == NULL) {
+        printf("ERROR: Failed to open %s!\n", argv[1]);
+        return 1;
+    }
+    f = read_frames(fp);
+
+    fpout = fopen(argv[5], "w");
+    if (fpout == NULL) {
+        printf("ERROR: Failed to open %s!\n", argv[5]);
+        fclose(fp);
+        return 1;
+    }
+
+    /* Extend audio and write to new file */
+    fout.headers = f.headers;
+    res = loop(&f, start_time, end_time, min_length, &fout);
+    if (!res) {
+        write_wav(fpout, fout);
+    }
+
+    /* Clean up */
+    fclose(fp);
+    fclose(fpout);
     return res;
 }
 
