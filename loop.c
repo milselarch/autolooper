@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "parse_wav.h"
+#include "parse_wav.c"
 #include "loop.h"
 
 int read_samples (WavFile* wavfile, sndbuf* buf, int channels, unsigned long offset, unsigned long duration) {
@@ -138,7 +138,7 @@ int loop (WavFile* f, unsigned int start_time, unsigned int end_time, unsigned i
     fout->num_frames = extended_buf.size;
     fout->headers.data_chunk_size = extended_buf.size * 2;
     fout->headers.chunk_size = 36 + fout->headers.sub_chunk1_size + fout->headers.sub_chunk2_size +
-                                fout->headers.data_chunk_size;
+                                fout->headers.data_chunk_size; //CHANGE TO 28
 
     /* Clean up */
     free(start_buf.data);
@@ -208,12 +208,14 @@ int main (int argc, char** argv) {
     /* int i; */
 
     FILE *fp = fopen("recycling.wav", "r");
+    // FILE *fp = fopen("write2.wav", "r");
     FILE* file_p;
     WavFile file = read_frames(fp);
     WavFile loop_file;
     loop_file.headers = file.headers;
     loop(&file, 0, 75, 120, &loop_file);
     file_p = fopen("./write2.wav", "w");
+    // file_p = fopen("./write4.wav", "w");
     if(NULL == file_p)
         {
             printf("fopen failed in main");
@@ -222,6 +224,7 @@ int main (int argc, char** argv) {
     write_wav(file_p, loop_file);
     fclose(file_p);
     fclose(fp);
+
     /*
     for(i=100000;i<100200;i++){
         printf("%d\n",frames.frames[i]);

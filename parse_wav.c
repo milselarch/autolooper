@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 // #include <math.h>
 
 const int DEBUG_INDEX = 31910;
@@ -260,8 +261,8 @@ WavHeaders read_wav_headers(FILE * fp) {
     unsigned long format = read_long_from_str_slice(fp, 20, 22, 1);
     unsigned long num_channels = read_long_from_str_slice(fp,22, 24, 1);
     unsigned long sample_rate = read_long_from_str_slice(fp, 24, 28, 1);
-    unsigned long byte_rate = read_long_from_str_slice(fp, 29, 32, 1);
-    unsigned long block_align = read_long_from_str_slice(fp, 33, 34, 1);
+    unsigned long byte_rate = read_long_from_str_slice(fp, 28, 32, 1);
+    unsigned long block_align = read_long_from_str_slice(fp, 32, 34, 1);
     unsigned long bits_per_sample = read_long_from_str_slice(fp, 34, 36, 1);
 
     unsigned long extra_params_size = 0;
@@ -610,12 +611,12 @@ void write_wav(FILE * fp, WavFile file){
 
     // Marks the start of the data
     fwrite(file.headers.data_header, 1, 4, fp);
-    fwrite(&file.headers.data_chunk_size, 4, 1, fp);  // Data size
-    for (int i = 0; i < file.num_frames; i++)
-    {
-
-        fwrite(&file.unscaled_frames[i], 2, 1, fp);
-    }
+    fwrite(&file.headers.data_chunk_size, 4, 1, fp); 
+    fwrite(file.unscaled_frames,2,file.num_frames,fp); // Data size
+    // for (int i = 0; i < file.num_frames; i++)
+    // {   
+    //     fwrite(&file.unscaled_frames[i] , sizeof(int16_t), 1, fp);
+    // }
 
 
     
