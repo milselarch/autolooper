@@ -58,6 +58,55 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
     return best_offset;
 }
 
+unsigned long find_difference(short* start_buf, short* end_buf, int window_size) {
+    unsigned long diff = 0;
+    for (unsigned long i = 0; i < window_size; i++) {
+        long d = (long) (start_buf[i] - end_buf[i]);
+        diff += d * d;
+    }
+    return diff / window_size;
+}
+
+int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned int* end_time_buf, int num_channels, int sample_rate, unsigned long window_size)
+{
+    unsigned long best_end = 0L;
+    unsigned long best_start = 0L;
+    unsigned long start, end;
+    unsigned long best_score = ULONG_MAX;
+    unsigned long score;
+    unsigned long step_size = window_size * num_channels / 120;
+    short* sample_data = buf->data;
+
+    printf("progress:\n");
+    for (start = 0; start < buf->size - window_size; start += step_size) {
+        printf("\r                                                                                          ");
+        printf("\r%f percent -- best score: %lu", (float) start * 100 / (float) (buf->size - window_size), best_score);
+        fflush(stdout);
+        for (end = start + window_size; end < buf->size - window_size; end += step_size) {
+            score = find_difference(sample_data + start * num_channels, sample_data + end * num_channels, window_size * num_channels);
+            // Check if this is the best score found so far
+            // Equality to detect furthest loop (else may detect similar sections of same verse)
+            if (score <= best_score && score != 0) {
+                best_score = score;
+                best_start = start;
+                best_end = end;
+                // printf("assigning best: %lu, %lu %lu\n", best_score, best_start, best_end);
+            }
+        }
+    }
+
+    printf("\ndone\n");
+    printf("Best start time: %f\n", (float) best_start / (sample_rate * num_channels));
+    printf("Best end time: %f\n", (float) best_end / (sample_rate * num_channels));
+    *start_time_buf = (unsigned int) (best_start / (sample_rate * num_channels));
+    *end_time_buf = (unsigned int) (best_end / (sample_rate * num_channels));
+    printf("best score: %lu\n", best_score);
+    
+    return 0; // Indicate success
+}
+
+
+
 void copy_samples (sndbuf* src_buf, short* dst) {
     unsigned int i;
     for (i = 0; i < src_buf->size; i++) {
