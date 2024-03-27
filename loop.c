@@ -58,9 +58,12 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
     return best_offset;
 }
 
+/**
+ * Finds the average diff of the samples within the given window
+*/
 unsigned long find_difference(short* start_buf, short* end_buf, int window_size) {
     unsigned long diff = 0;
-    for (unsigned long i = 0; i < window_size; i++) {
+    for (unsigned long i = 0; i < window_size; i+=100) {
         long d = (long) (start_buf[i] - end_buf[i]);
         diff += d * d;
     }
@@ -69,38 +72,13 @@ unsigned long find_difference(short* start_buf, short* end_buf, int window_size)
 
 int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned int* end_time_buf, int num_channels, int sample_rate, unsigned long window_size)
 {
-    unsigned long best_end = 0L;
-    unsigned long best_start = 0L;
-    unsigned long start, end;
-    unsigned long best_score = ULONG_MAX;
-    unsigned long score;
-    unsigned long step_size = window_size * num_channels / 120;
-    short* sample_data = buf->data;
+    unsigned long* start_offset_buf;
+    unsigned long* end_offset_buf;
 
-    printf("progress:\n");
-    for (start = 0; start < buf->size - window_size; start += step_size) {
-        printf("\r                                                                                          ");
-        printf("\r%f percent -- best score: %lu", (float) start * 100 / (float) (buf->size - window_size), best_score);
-        fflush(stdout);
-        for (end = start + window_size; end < buf->size - window_size; end += step_size) {
-            score = find_difference(sample_data + start * num_channels, sample_data + end * num_channels, window_size * num_channels);
-            // Check if this is the best score found so far
-            // Equality to detect furthest loop (else may detect similar sections of same verse)
-            if (score <= best_score) {
-                best_score = score;
-                best_start = start;
-                best_end = end;
-                // printf("assigning best: %lu, %lu %lu\n", best_score, best_start, best_end);
-            }
-        }
-    }
+    find_loop_points_auto_offsets(buf, start_offset_buf, end_offset_buf, num_channels, sample_rate, window_size);
 
-    printf("\ndone\n");
-    printf("Best start time: %f\n", (float) best_start / (sample_rate * num_channels));
-    printf("Best end time: %f\n", (float) best_end / (sample_rate * num_channels));
-    *start_time_buf = (unsigned int) (best_start / (sample_rate * num_channels));
-    *end_time_buf = (unsigned int) (best_end / (sample_rate * num_channels));
-    printf("best score: %lu\n", best_score);
+    *start_time_buf = (unsigned int) (*start_offset_buf / (sample_rate * num_channels));
+    *end_time_buf = (unsigned int) (*end_offset_buf / (sample_rate * num_channels));
     
     return 0; // Indicate success
 }
@@ -108,39 +86,46 @@ int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned in
 
 int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, unsigned long* end_offset_buf, int num_channels, int sample_rate, unsigned long window_size)
 {
+    short* sample_data = buf->data;
+
     unsigned long best_end = 0L;
     unsigned long best_start = 0L;
     unsigned long start, end;
     unsigned long best_score = ULONG_MAX;
     unsigned long score;
-    unsigned long step_size = window_size * num_channels / 120;
-    short* sample_data = buf->data;
+    
+    /* step_size MUST be set to sample_rate or less to allow find_loop_end to successfully find the loop point */
+    unsigned long step_size = sample_rate * num_channels / 6;
 
-    printf("progress:\n");
+    printf("Loop finding progress:\n");
     for (start = 0; start < buf->size - window_size; start += step_size) {
-        printf("\r                                                                                          ");
-        printf("\r%f percent -- best score: %lu", (float) start * 100 / (float) (buf->size - window_size), best_score);
+        printf("\r%f%% -- best segment score: %lu", (float) start * 100 / (float) (buf->size - window_size), best_score);
         fflush(stdout);
+
         for (end = start + window_size; end < buf->size - window_size; end += step_size) {
-            score = find_difference(sample_data + start * num_channels, sample_data + end * num_channels, window_size * num_channels);
-            // Check if this is the best score found so far
-            // Equality to detect furthest loop (else may detect similar sections of same verse)
+
+            score = find_difference(
+                sample_data + start * num_channels, 
+                sample_data + end * num_channels, 
+                window_size * num_channels
+                );
+
+            /* Check if this is the best score found so far
+            Equality to detect furthest loop (else may detect similar sections of same verse) */
             if (score <= best_score) {
                 best_score = score;
                 best_start = start;
                 best_end = end;
-                // printf("assigning best: %lu, %lu %lu\n", best_score, best_start, best_end);
             }
         }
+        printf("\r                                                                                          ");
     }
-
-    printf("\ndone\n");
+    printf("\nLoop finding completed -----\n");
     printf("Best start time: %f\n", (float) best_start / (sample_rate * num_channels));
     printf("Best end time: %f\n", (float) best_end / (sample_rate * num_channels));
+    printf("-----------------------------\n");
     *start_offset_buf = best_start;
     *end_offset_buf = best_end;
-    printf("best score: %lu\n", best_score);
-    
     return 0; // Indicate success
 }
 
@@ -244,13 +229,11 @@ int loop_with_offsets (WavFile* f, unsigned long start_offset, unsigned long end
     unsigned int num_loops;
     WavHeaders info = f->headers;
 
-    printf("test: %lu\n", start_offset / info.sample_rate);
     res = read_samples(f, &start_buf, info.num_channels, start_offset, info.sample_rate);
     if (res) {
         printf("ERROR: start offset is an invalid timestamp!\n");
         return 1;
     }
-    printf("test: %lu\n", end_offset / info.sample_rate);
     res = read_samples(f, &end_buf, info.num_channels, end_offset, 2 * info.sample_rate);
     if (res) {
         printf("ERROR: end offset is an invalid timestamp!\n");
