@@ -59,74 +59,76 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
 }
 
 /**
- * Finds the average diff of the samples within the given window
-*/
+ * Finds the diff of the samples within the given window
+ * Averaged to account for window size
+ */
 unsigned long find_difference(short* start_buf, short* end_buf, int window_size) {
     unsigned long diff = 0;
-    for (unsigned long i = 0; i < window_size; i+=100) {
-        long d = (long) (start_buf[i] - end_buf[i]);
+    for (unsigned long i = 0; i < window_size; i += 100) {
+        long d = (long)(start_buf[i] - end_buf[i]);
         diff += d * d;
     }
     return diff / window_size;
 }
 
-int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned int* end_time_buf, int num_channels, int sample_rate, unsigned long window_size)
-{
-    unsigned long* start_offset_buf;
-    unsigned long* end_offset_buf;
+int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned int* end_time_buf, int num_channels, int sample_rate, unsigned long window_size) {
+    unsigned long *start_offset_buf;
+    unsigned long *end_offset_buf;
 
     find_loop_points_auto_offsets(buf, start_offset_buf, end_offset_buf, num_channels, sample_rate, window_size);
 
-    *start_time_buf = (unsigned int) (*start_offset_buf / (sample_rate * num_channels));
-    *end_time_buf = (unsigned int) (*end_offset_buf / (sample_rate * num_channels));
-    
-    return 0; // Indicate success
+    *start_time_buf = (unsigned int)(*start_offset_buf / (sample_rate * num_channels));
+    *end_time_buf = (unsigned int)(*end_offset_buf / (sample_rate * num_channels));
+
+    return 0;
 }
 
-
-int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, unsigned long* end_offset_buf, int num_channels, int sample_rate, unsigned long window_size)
-{
-    short* sample_data = buf->data;
+/**
+ * @param window_size Determines how far the similarity "lookahead" is, set to larger time values to prevent
+ * segments close together in time to be considered as a loop.
+ * However, this causes a problem when the "end" of the loop is not <window_size> seconds causing a mis-classification
+ */
+int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, unsigned long* end_offset_buf, int num_channels, int sample_rate, unsigned long window_size) {
+    short *sample_data = buf->data;
 
     unsigned long best_end = 0L;
     unsigned long best_start = 0L;
     unsigned long start, end;
     unsigned long best_score = ULONG_MAX;
     unsigned long score;
-    
-    /* step_size MUST be set to sample_rate or less to allow find_loop_end to successfully find the loop point */
-    unsigned long step_size = sample_rate * num_channels / 6;
 
-    printf("Loop finding progress:\n");
-    for (start = 0; start < buf->size - window_size; start += step_size) {
-        printf("\r%f%% -- best segment score: %lu", (float) start * 100 / (float) (buf->size - window_size), best_score);
+    /* step_size MUST be set to sample_rate or less to allow find_loop_end to successfully find the loop point */
+    unsigned long step_size = (sample_rate / 6) * num_channels;
+    printf("Finding Loop...\n");
+
+    for (start = 0; start <= buf->size - window_size * num_channels; start += step_size) {
+        printf("\r%f%% -- best segment score: %lu", (float)start * 100 / (float)(buf->size - window_size), best_score);
         fflush(stdout);
 
-        for (end = start + window_size; end < buf->size - window_size; end += step_size) {
+        for (end = start + window_size * num_channels; end <= buf->size - window_size * num_channels; end += step_size) {
 
             score = find_difference(
-                sample_data + start * num_channels, 
-                sample_data + end * num_channels, 
-                window_size * num_channels
-                );
+                sample_data + start,
+                sample_data + end,
+                window_size * num_channels);
 
             /* Check if this is the best score found so far
             Equality to detect furthest loop (else may detect similar sections of same verse) */
             if (score <= best_score) {
                 best_score = score;
-                best_start = start;
-                best_end = end;
+                best_start = start / num_channels;
+                best_end = end / num_channels;
             }
         }
         printf("\r                                                                                          ");
     }
-    printf("\nLoop finding completed -----\n");
-    printf("Best start time: %f\n", (float) best_start / (sample_rate * num_channels));
-    printf("Best end time: %f\n", (float) best_end / (sample_rate * num_channels));
-    printf("-----------------------------\n");
+
+    printf("\rLoop finding completed -------------------------\n");
+    printf("Best start time: %f\n", (float)best_start / sample_rate);
+    printf("Best end time: %f\n", (float)best_end / sample_rate);
     *start_offset_buf = best_start;
     *end_offset_buf = best_end;
-    return 0; // Indicate success
+    return 0;
 }
 
 void copy_samples (sndbuf* src_buf, short* dst) {
@@ -160,6 +162,15 @@ void extend_audio (sndbuf* extended_buf, sndbuf* intro_buf, sndbuf* loop_buf, sn
 }
 
 int loop (WavFile* f, unsigned int start_time, unsigned int end_time, unsigned int min_length, WavFile* fout) {
+    /*
+    unsigned long intro_size, end_offset, loop_size, ending_size;
+    WavHeaders info = f->headers;
+    intro_size = start_time * info.sample_rate;
+    end_offset = end_time * info.sample_rate;
+
+    return loop_with_offsets(f, intro_size, end_offset, min_length, fout);
+    */
+
     unsigned long intro_size, end_offset, loop_size, ending_size;
     sndbuf start_buf, end_buf, loop_buf, intro_buf, ending_buf, extended_buf;
     int res;
@@ -220,9 +231,7 @@ int loop (WavFile* f, unsigned int start_time, unsigned int end_time, unsigned i
     return 0;
 }
 
-
-
-int loop_with_offsets (WavFile* f, unsigned long start_offset, unsigned long end_offset, unsigned int min_length, WavFile* fout) {
+int loop_with_offsets(WavFile* f, unsigned long start_offset, unsigned long end_offset, unsigned int min_length, WavFile* fout) {
     unsigned long loop_size, ending_size;
     sndbuf start_buf, end_buf, loop_buf, intro_buf, ending_buf, extended_buf;
     int res;
