@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include "parse_wav.h"
+#include <time.h>
 #include "loop.h"
 
 int read_samples (WavFile* wavfile, sndbuf* buf, int channels, unsigned long offset, unsigned long duration) {
@@ -41,7 +42,7 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
     for (i = 0; i < duration; i++) {
         /* Calculate score for current offset */
         score = 0;
-        for (j = 0; j < duration * channels; j ++) {
+        for (j = 0; j < duration * channels; j += 1) {
             diff = start_buf->data[j] - end_buf->data[i * channels + j];
             score += diff * diff;
         }
@@ -403,5 +404,50 @@ int main (int argc, char** argv) {
     }
     */
 
+    return 0;
+}
+
+
+
+int main_auto_loop(int argc, char **argv)
+{
+    clock_t t;
+    sndbuf all_smpl_buf;
+    unsigned long start_offset;
+    unsigned long end_offset;
+
+    /* int i; */
+    FILE *fp;
+    fp = fopen("recycling.wav", "r");
+    int window_size_sec = 20;
+
+    FILE *file_p;
+    WavFile file = read_frames(fp);
+    WavFile loop_file;
+    loop_file.headers = file.headers;
+
+    /* Auto looping*/
+    read_samples(&file, &all_smpl_buf, file.headers.num_channels, 0uL, file.num_frames);
+
+    t = clock();
+    find_loop_points_auto_offsets(&all_smpl_buf, &start_offset, &end_offset, file.headers.num_channels, file.headers.sample_rate, file.headers.sample_rate * window_size_sec);
+    t = clock() - t;
+    printf("Loop finding Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
+
+    t = clock();
+    loop_with_offsets(&file, start_offset, end_offset, 300, &loop_file);
+    t = clock() - t;
+    printf("Looping Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
+
+    file_p = fopen("./write2.wav", "w");
+    if (NULL == file_p)
+    {
+        printf("fopen failed in main");
+        return 0;
+    }
+    write_wav(file_p, loop_file);
+    fclose(file_p);
+    fclose(fp);
+    
     return 0;
 }
