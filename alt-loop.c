@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <sndfile.h>
-#include "main.h"
+#include "alt-loop.h"
 
 int read_samples (SNDFILE* f, sndbuf* buf, int channels, sf_count_t offset, sf_count_t duration) {
     /* Seek to offset */
