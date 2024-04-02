@@ -90,7 +90,7 @@ sf_count_t find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
     for (i = 0; i < duration; i++) {
         score = 0;
         for (j = 0; j < duration; j++) {
-            diff = start_peaks[i] - end_peaks[i];
+            diff = start_peaks[j] - end_peaks[i + j];
             score += diff * diff;
         }
         if (score < best_score) {
