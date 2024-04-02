@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "parse_wav.c"
+#include "parse_wav.h"
 #include <time.h>
 #include "loop.h"
 
