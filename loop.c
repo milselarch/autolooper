@@ -1,9 +1,116 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include "parse_wav.h"
+#include "parse_wav.c"
 #include <time.h>
 #include "loop.h"
+
+
+
+typedef enum {
+    STATE_0,
+    STATE_1,
+    STATE_2,
+    STATE_3,
+    STATE_4, /* ACCEPTING STATE*/
+
+} FileExtState;
+
+typedef enum {
+    STATE_A,
+    STATE_B /* REJECTING STATE*/
+} NumState;
+
+typedef struct {
+    FileExtState currentState;
+    char dot;
+} FileExtFSM;
+
+typedef struct {
+    NumState currentState;
+    int rangeStart;
+    int rangeEnd;
+
+} NumFSM;
+
+void initFileExtFSM(FileExtFSM *fsm) {
+    fsm->currentState=STATE_0;
+    fsm->dot='.';
+  
+}
+
+void initNumFSM(NumFSM *fsm) {
+    fsm->currentState=STATE_0;
+  
+}
+
+void processCharFileExt(FileExtFSM *fsm, char input_char) {
+
+    if(input_char==fsm->dot){
+        fsm->currentState=STATE_1;
+    }
+
+    else if((fsm->currentState==STATE_1) && ((input_char=='w') || (input_char=='W')) ) {
+        fsm->currentState=STATE_2;
+    }
+
+    else if((fsm->currentState==STATE_2) && ((input_char=='a') || (input_char=='A')) ){
+        fsm->currentState=STATE_3;
+    }
+
+    else if((fsm->currentState==STATE_3) && ((input_char=='v') || (input_char=='V')) ){
+        fsm->currentState=STATE_4;
+    }
+
+    else{
+        fsm->currentState=STATE_0;
+    }
+
+    
+}
+
+void processCharNum(NumFSM *fsm, char input_char) {
+
+    if(input_char<'0' || input_char>'9'){
+        fsm->currentState=STATE_1;
+
+    }
+
+    
+}
+
+
+
+int runFileExtFsm(FileExtFSM *fsm, const char *str) {
+    int i =0;
+
+
+    for(i=0;str[i]!='\0';i++){
+        processCharFileExt(fsm,str[i]);
+    }
+
+    if(fsm->currentState==STATE_4){
+        return 1;
+    }
+
+    return 0;
+}
+
+int runNumFsm(NumFSM *fsm, const char *str) {
+    int i =0;
+
+
+    for(i=0;str[i]!='\0';i++){
+        processCharNum(fsm,str[i]);
+    }
+
+    if(fsm->currentState==STATE_1){
+        return 0;
+    }
+
+    return 1;
+}
+
 
 int read_samples (WavFile* wavfile, sndbuf* buf, int channels, unsigned long offset, unsigned long duration) {
     unsigned long res = 0;
@@ -300,116 +407,51 @@ int check_frames(short * frames1, short* frames2, int channels, unsigned long li
 }
 */
 
-/* TODO replace main() with this after testing is done */
-int _main (int argc, char** argv) {
-    unsigned long start_time, end_time, min_length;
-    int res;
-    char* end_ptr;
-    FILE* fp;
-    FILE* fpout;
-    WavFile f, fout;
-
-    if (argc < 6) {
-        printf("ERROR: Insufficient number of arguments!\n");
-        printf("Usage: ./test INPUT_FILE START_TIME END_TIME MIN_LENGTH OUTPUT_FILE\n");
-        printf("START_TIME, END_TIME and MIN_LENGTH should be provided in seconds\n");
-        return 1;
-    }
-
-    /* Perform checks on input */
-    start_time = strtoul(argv[2], &end_ptr, 10);
-    if (!start_time && end_ptr == argv[2]) {
-        printf("ERROR: Invalid start time!\n");
-        return 1;
-    }
-
-    end_time = strtoul(argv[3], &end_ptr, 10);
-    if (!end_time && end_ptr == argv[3]) {
-        printf("ERROR: Invalid end time!\n");
-        return 1;
-    }
-    if (start_time > end_time) {
-        printf("ERROR: Start time is after end time!\n");
-        return 1;
-    }
-
-    min_length = strtoul(argv[4], &end_ptr, 10);
-    if (!min_length && end_ptr == argv[4]) {
-        printf("ERROR: Invalid minimum length!\n");
-        return 1;
-    }
-
-    fp = fopen(argv[1], "r");
-    if (fp == NULL) {
-        printf("ERROR: Failed to open %s!\n", argv[1]);
-        return 1;
-    }
-    f = read_frames(fp);
-
-    fpout = fopen(argv[5], "w");
-    if (fpout == NULL) {
-        printf("ERROR: Failed to open %s!\n", argv[5]);
-        fclose(fp);
-        return 1;
-    }
-
-    /* Extend audio and write to new file */
-    fout.headers = f.headers;
-    res = loop(&f, start_time, end_time, min_length, &fout);
-    if (!res) {
-        write_wav(fpout, fout);
-    }
-
-    /* Clean up */
-    fclose(fp);
-    fclose(fpout);
-    return res;
-}
 
 
-int main (int argc, char** argv) {
-    /* int i; */
+// int main (int argc, char** argv) {
+//     /* int i; */
 
-    FILE *fp = fopen("recycling.wav", "r");
-    // FILE *fp = fopen("write2.wav", "r");
-    FILE* file_p;
-    WavFile file = read_frames(fp);
-    WavFile loop_file;
-    loop_file.headers = file.headers;
-    loop(&file, 0, 75, 120, &loop_file);
-    file_p = fopen("./write2.wav", "w");
-    // file_p = fopen("./write4.wav", "w");
-    if(NULL == file_p)
-        {
-            printf("fopen failed in main");
-            return 0;
-        }
-    write_wav(file_p, loop_file);
-    fclose(file_p);
-    fclose(fp);
+//     FILE *fp = fopen("recycling.wav", "r");
+//     // FILE *fp = fopen("write2.wav", "r");
+//     FILE* file_p;
+//     WavFile file = read_frames(fp);
+//     WavFile loop_file;
+//     loop_file.headers = file.headers;
+//     loop(&file, 0, 75, 120, &loop_file);
+//     file_p = fopen("./write2.wav", "w");
+//     // file_p = fopen("./write4.wav", "w");
+//     if(NULL == file_p)
+//         {
+//             printf("fopen failed in main");
+//             return 0;
+//         }
+//     write_wav(file_p, loop_file);
+//     fclose(file_p);
+//     fclose(fp);
 
-    /*
-    for(i=100000;i<100200;i++){
-        printf("%d\n",frames.frames[i]);
-    }
+//     /*
+//     for(i=100000;i<100200;i++){
+//         printf("%d\n",frames.frames[i]);
+//     }
 
 
 
-    printf("num_frames:%ld",file.num_frames);
-    for(int i=100000;i<100200;i++){
-        printf("%d\n",file.unscaled_frames[i]);
-    }
-    if (res) {
-        return 1;
-    }
-    */
+//     printf("num_frames:%ld",file.num_frames);
+//     for(int i=100000;i<100200;i++){
+//         printf("%d\n",file.unscaled_frames[i]);
+//     }
+//     if (res) {
+//         return 1;
+//     }
+//     */
 
-    return 0;
-}
+//     return 0;
+// }
 
 
 
-int main_auto_loop(int argc, char **argv)
+int main_auto_loop(char * read_file, char* write_file)
 {
     clock_t t;
     sndbuf all_smpl_buf;
@@ -418,7 +460,12 @@ int main_auto_loop(int argc, char **argv)
 
     /* int i; */
     FILE *fp;
-    fp = fopen("recycling.wav", "r");
+    fp = fopen(read_file, "r");
+    if (NULL == fp)
+    {
+        printf("ERROR: Failed to open %s!\n",read_file);
+        return 0;
+    }
     int window_size_sec = 20;
 
     FILE *file_p;
@@ -439,10 +486,10 @@ int main_auto_loop(int argc, char **argv)
     t = clock() - t;
     printf("Looping Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
 
-    file_p = fopen("./write2.wav", "w");
+    file_p = fopen(write_file, "w");
     if (NULL == file_p)
     {
-        printf("fopen failed in main");
+        printf("ERROR: Failed to open %s!\n",write_file);
         return 0;
     }
     write_wav(file_p, loop_file);
@@ -450,4 +497,117 @@ int main_auto_loop(int argc, char **argv)
     fclose(fp);
     
     return 0;
+}
+
+
+/* TODO replace main() with this after testing is done */
+int main (int argc, char** argv) {
+    unsigned long start_time, end_time, min_length;
+    int res;
+    char* end_ptr;
+    FILE* fp;
+    FILE* fpout;
+    WavFile f, fout;
+    FileExtFSM fileExtFsm;
+    NumFSM numFsm;
+    int result;
+
+    if ((argc>3 && argc < 6) || argc<3) {
+        printf("ERROR: Insufficient number of arguments!\n");
+        printf("For regular loop usage: ./test INPUT_FILE OUTPUT_FILE START_TIME END_TIME MIN_LENGTH \nFor auto loop usage: ./test INPUT_FILE OUTPUT_FILE\n");
+        printf("START_TIME, END_TIME and MIN_LENGTH should be provided in seconds for regular looping\n");
+        return 1;
+    }
+
+   
+
+    /* Perform checks on input */
+
+    /* check read file input*/
+    initFileExtFSM(&fileExtFsm);
+    result = runFileExtFsm(&fileExtFsm,argv[1]);
+    if(!result){
+        printf("ERROR: File extension is not .wav: %s\n",argv[1]);
+        return 1;
+    }
+
+    /* check write file input*/
+    initFileExtFSM(&fileExtFsm);
+    result=runFileExtFsm(&fileExtFsm,argv[2]); 
+    if(!result){
+        printf("ERROR: File extension is not .wav: %s\n",argv[2]);
+        return 1;
+    }
+
+    if(argc==3){
+
+        int res=main_auto_loop(argv[1],argv[2]);
+        return res;
+
+    }
+    
+    /* check start time input*/
+    initNumFSM(&numFsm);
+    result=runNumFsm(&numFsm,argv[3]);
+    if(!result){
+        printf("ERROR: Invalid start time! : %s\n",argv[3]);
+        return 1;
+    }
+    start_time = strtoul(argv[3], &end_ptr, 10);
+
+    /* check end time input*/
+    initNumFSM(&numFsm);
+    result=runNumFsm(&numFsm,argv[4]); 
+    if(!result){
+        printf("ERROR: Invalid end time! : %s\n",argv[4]);
+        return 1;
+    }
+    end_time = strtoul(argv[4], &end_ptr, 10);
+
+    if (start_time > end_time) {
+        printf("ERROR: Start time is after end time!\n");
+        return 1;
+    }
+
+    /* check min length input*/
+    initNumFSM(&numFsm);
+    result=runNumFsm(&numFsm,argv[5]); 
+    if(!result){
+        printf("ERROR: Invalid min length! : %s\n",argv[5]);
+        return 1;
+    }
+    min_length = strtoul(argv[5], &end_ptr, 10);
+
+
+    fp = fopen(argv[1], "r");
+    if (fp == NULL) {
+        printf("ERROR: Failed to open %s!\n", argv[1]);
+        return 1;
+    }
+
+    
+
+
+
+    f = read_frames(fp);
+
+    
+    fpout = fopen(argv[2], "w");
+    if (fpout == NULL) {
+        printf("ERROR: Failed to open %s!\n", argv[2]);
+        fclose(fp);
+        return 1;
+    }
+
+    /* Extend audio and write to new file */
+    fout.headers = f.headers;
+    res = loop(&f, start_time, end_time, min_length, &fout);
+    if (!res) {
+        write_wav(fpout, fout);
+    }
+
+    /* Clean up */
+    fclose(fp);
+    fclose(fpout);
+    return res;
 }
