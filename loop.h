@@ -1,3 +1,6 @@
+/**
+ * Buffer for audio samples with size tracking
+ */
 typedef struct sound_buffer {
     short* data;
     unsigned long size;

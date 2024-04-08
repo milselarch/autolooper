@@ -140,24 +140,15 @@ int loop_with_offsets(WavFile* f, unsigned long start_offset, unsigned long end_
     return 0;
 }
 
-int auto_loop(char * read_file, char* write_file)
+int auto_loop(FILE* fp, FILE* fpout)
 {
     clock_t t;
     sndbuf all_smpl_buf;
     unsigned long start_offset;
     unsigned long end_offset;
     int window_size_sec = 20;
-    FILE *fp;
-    FILE *file_p;
     WavFile file;
     WavFile loop_file;
-
-    fp = fopen(read_file, "r");
-    if (NULL == fp)
-    {
-        printf("ERROR: Failed to open %s!\n",read_file);
-        return 0;
-    }
 
     file = read_frames(fp);
     loop_file.headers = file.headers;
@@ -175,14 +166,8 @@ int auto_loop(char * read_file, char* write_file)
     t = clock() - t;
     printf("Looping Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
 
-    file_p = fopen(write_file, "w");
-    if (NULL == file_p)
-    {
-        printf("ERROR: Failed to open %s!\n",write_file);
-        return 0;
-    }
-    write_wav(file_p, loop_file);
-    fclose(file_p);
+    write_wav(fpout, loop_file);
+    fclose(fpout);
     fclose(fp);
 
     return 0;
