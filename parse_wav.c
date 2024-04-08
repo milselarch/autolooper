@@ -234,11 +234,6 @@ WavHeaders read_wav_headers(FILE * fp) {
         exit(1);
     }
 
-    // https://stackoverflow.com/questions/238603/
-    fseek(fp, 0L, SEEK_END);
-    // long filesize = ftell(fp);
-    fseek(fp, 0L, SEEK_SET);
-
     char * chunk_id = read_str_slice(fp, 0, 4);
     printf("CHUNK_START_READ: %s\n", chunk_id);
     if (!is_str_equal(chunk_id, "RIFF")) {
@@ -268,7 +263,7 @@ WavHeaders read_wav_headers(FILE * fp) {
 
     if (sub_chunk1_size != 16) {
         unsigned long extra_params_size = read_long_from_str_slice(
-          fp, 36, 38, 1
+            fp, 36, 38, 1
         );
         extra_params = read_str_slice(fp, 38, 38 + extra_params_size);
         printf("extra params: %s\n",extra_params);
