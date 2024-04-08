@@ -1,10 +1,22 @@
+/**
+ * @file loop.c
+ * @brief Algorithm to find the best loop point from user input and create an extended audio file
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
 #include "parse_wav.h"
 #include "loop.h"
 
-
+/**
+ * Copies a number of samples from the wav file into a buffer
+ * @param wavfile - The pointer to the wav file
+ * @param buf - The pointer to the destination buffer
+ * @param channels - The number of channels in the audio
+ * @param offset - The number of samples offset to start reading the wav file
+ * @param duration - The number of samples to be read
+ * @return Whether the samples were read successfully (0 if success)
+ */
 int read_samples (WavFile* wavfile, sndbuf* buf, int channels, unsigned long offset, unsigned long duration) {
     unsigned long res = 0;
     short* wav_ptr;
@@ -30,6 +42,13 @@ int read_samples (WavFile* wavfile, sndbuf* buf, int channels, unsigned long off
     return 0;
 }
 
+/**
+ * Finds the closest matching looping point from the end timestamp
+ * @param start_buf - The buffer for the samples at the start of the loop
+ * @param end_buf - The buffer for the samples at the end of the loop
+ * @param channels - The number of channels in the audio
+ * @return The optimal offset in end_buf
+ */
 unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
     unsigned long duration = start_buf->size / channels;
     unsigned int best_offset = 0;
@@ -59,6 +78,11 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
     return best_offset;
 }
 
+/**
+ * Copies samples from a sndbuf to a regular short buffer
+ * @param src_buf - The pointer to the sndbuf to copy from
+ * @param dst - The short buffer to copy into
+ */
 void copy_samples (sndbuf* src_buf, short* dst) {
     unsigned int i;
     for (i = 0; i < src_buf->size; i++) {
@@ -66,6 +90,14 @@ void copy_samples (sndbuf* src_buf, short* dst) {
     }
 }
 
+/**
+ * Creates a buffer of the extended audio
+ * @param extended_buf - The pointer to the buffer for the extended audio
+ * @param intro_buf - The pointer to the buffer that contains all audio before the loop
+ * @param loop_buf - The pointer to the buffer that contains the audio in the loop
+ * @param ending_buf - The pointer to the buffer that contains all audio after the loop
+ * @param num_loops - The number of loops in the extended audio
+ */
 void extend_audio (sndbuf* extended_buf, sndbuf* intro_buf, sndbuf* loop_buf, sndbuf* ending_buf, unsigned int num_loops) {
     short* seek_ptr;
     unsigned int loop_ctr;
@@ -89,16 +121,16 @@ void extend_audio (sndbuf* extended_buf, sndbuf* intro_buf, sndbuf* loop_buf, sn
     copy_samples(ending_buf, seek_ptr);
 }
 
+/**
+ * Finds the best loop point from user input and creates the extended audio
+ * @param f - The pointer to the input wav file
+ * @param start_time - The estimated timestamp for the start of the loop (in seconds)
+ * @param end_time - The estimated timestamp for the end of the loop (in seconds)
+ * @param min_length - The minimum length of the extended audio (in seconds)
+ * @param fout - The pointer to the output wav file
+ * @return Whether the audio extension is successful (0 if success)
+ */
 int loop (WavFile* f, unsigned int start_time, unsigned int end_time, unsigned int min_length, WavFile* fout) {
-    /*
-    unsigned long intro_size, end_offset, loop_size, ending_size;
-    WavHeaders info = f->headers;
-    intro_size = start_time * info.sample_rate;
-    end_offset = end_time * info.sample_rate;
-
-    return loop_with_offsets(f, intro_size, end_offset, min_length, fout);
-    */
-
     unsigned long intro_size, end_offset, loop_size, ending_size;
     sndbuf start_buf, end_buf, loop_buf, intro_buf, ending_buf, extended_buf;
     int res;
