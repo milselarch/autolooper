@@ -78,12 +78,12 @@ int main (int argc, char** argv) {
         printf("ERROR: Invalid end time!\n");
         return 1;
     }
+    end_time = strtoul(argv[4], &end_ptr, 10);
 
     if (start_time > end_time) {
         printf("ERROR: Start time is after end time!\n");
         return 1;
     }
-    end_time = strtoul(argv[4], &end_ptr, 10);
 
     /* Check min length */
     initNumFSM(&numFsm);

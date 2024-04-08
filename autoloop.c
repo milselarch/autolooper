@@ -128,8 +128,8 @@ int loop_with_offsets(WavFile* f, unsigned long start_offset, unsigned long end_
     fout->unscaled_frames = extended_buf.data;
     fout->num_frames = extended_buf.size;
     fout->headers.data_chunk_size = extended_buf.size * 2;
-    fout->headers.chunk_size = 36 + fout->headers.sub_chunk1_size + fout->headers.sub_chunk2_size +
-                                fout->headers.data_chunk_size; /* CHANGE TO 28 */
+    fout->headers.chunk_size = 28 + fout->headers.sub_chunk1_size + fout->headers.sub_chunk2_size +
+                                fout->headers.data_chunk_size;
 
     /* Clean up */
     free(start_buf.data);
