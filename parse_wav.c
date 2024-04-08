@@ -236,7 +236,7 @@ WavHeaders read_wav_headers(FILE * fp) {
 
     // https://stackoverflow.com/questions/238603/
     fseek(fp, 0L, SEEK_END);
-    long filesize = ftell(fp);
+    // long filesize = ftell(fp);
     fseek(fp, 0L, SEEK_SET);
 
     char * chunk_id = read_str_slice(fp, 0, 4);
@@ -264,14 +264,14 @@ WavHeaders read_wav_headers(FILE * fp) {
     unsigned long byte_rate = read_long_from_str_slice(fp, 28, 32, 1);
     unsigned long block_align = read_long_from_str_slice(fp, 32, 34, 1);
     unsigned long bits_per_sample = read_long_from_str_slice(fp, 34, 36, 1);
-
-    unsigned long extra_params_size = 0;
-    char * extra_params = 0;
+    char * extra_params;
 
     if (sub_chunk1_size != 16) {
-        extra_params_size = read_long_from_str_slice(fp, 36, 38, 1);
+        unsigned long extra_params_size = read_long_from_str_slice(
+          fp, 36, 38, 1
+        );
         extra_params = read_str_slice(fp, 38, 38 + extra_params_size);
-        printf("extra params: %s\n",extra_params);  
+        printf("extra params: %s\n",extra_params);
     }
     extra_params = read_str_slice(fp, 36, 40);
     printf("extra params: %s\n",read_str_slice(fp, 36, 40)); 
@@ -325,119 +325,13 @@ WavHeaders read_wav_headers(FILE * fp) {
     headers.extra_params = extra_params;
     headers.sub_chunk2_size = (int) sub_chunk2_size;
     headers.list_chunk_data = list_chunk;
-    headers.header_size=header_size;
+    headers.header_size = (long) header_size;
     headers.data_header = data_header; //(int) header_size;
     headers.data_chunk_size = (int) data_chunk_size;
     print_wav_headers(headers);
     printf("%ld\n",data_chunk_size);
     return headers;
 }
-
-WavHeaders read_wav_headers2(FILE * fp) {
-    if (fp == NULL) {
-        printf("FILE_OPEN_FAILED");
-        exit(1);
-    }
-
-    // https://stackoverflow.com/questions/238603/
-    fseek(fp, 0L, SEEK_END);
-    long filesize = ftell(fp);
-    fseek(fp, 0L, SEEK_SET);
-
-    char * chunk_id = read_str_slice(fp, 0, 4);
-    printf("CHUNK_START_READ: %s\n", chunk_id);
-    if (!is_str_equal(chunk_id, "RIFF")) {
-        printf("INVALID_FILE_HEADER");
-        exit(1);
-    }
-
-    unsigned long chunk_size = read_long_from_str_slice(fp, 4, 8, 1);
-    printf("chunk size: %ld",chunk_size);
-    char * format_str = read_str_slice(fp, 8, 12);
-    if (!is_str_equal(format_str, "WAVE")) {
-        printf("WAV FORMAT IS NOT WAVE: %s\n", format_str);
-        exit(1);
-    }
-
-    char * sub_chunk_id = read_str_slice(fp, 12, 16);
-    printf("sub chunk id: %s\n", sub_chunk_id);
-    // size in bytes of initial fmt chunk
-    unsigned long sub_chunk1_size = read_long_from_str_slice(fp, 16, 20, 1);
-    unsigned long format = read_long_from_str_slice(fp, 20, 22, 1);
-    unsigned long num_channels = read_long_from_str_slice(fp,22, 24, 1);
-    unsigned long sample_rate = read_long_from_str_slice(fp, 24, 28, 1);
-    unsigned long byte_rate = read_long_from_str_slice(fp, 29, 32, 1);
-    unsigned long block_align = read_long_from_str_slice(fp, 33, 34, 1);
-    unsigned long bits_per_sample = read_long_from_str_slice(fp, 34, 36, 1);
-
-    unsigned long extra_params_size = 0;
-    char * extra_params = 0;
-
-    // if (sub_chunk1_size != 16) {
-    //     extra_params_size = read_long_from_str_slice(fp, 36, 38, 1);
-    //     extra_params = read_str_slice(fp, 38, 38 + extra_params_size);
-    //     printf("extra params: %s\n",extra_params);  
-    // }
-    // extra_params = read_str_slice(fp, 36, 40);
-    // printf("extra params: %s\n",read_str_slice(fp, 36, 40)); 
-
-    // size in bytes of LIST chunk
-    // unsigned long sub_chunk2_size = read_long_from_str_slice(fp, 40, 44, 1);
-    // char * list_chunk = read_str_slice(fp, 44, 44+sub_chunk2_size); 
-    // printf("list chunk: %s\n",list_chunk); 
-    unsigned long header_size = (
-        4 + // for RIFF initial chunk header
-        4 + // overall chunk size info
-        4 + // extra 4 bytes of space to store WAVE (to declare file is wav?)
-        4 + // fmt sub chunk header
-        4 + // fmt sub chunk size info
-        sub_chunk1_size  // WAVE sub chunk size
-        // 4 + // LIST sub chunk header
-        // 4  // LIST sub chunk info size
-        // sub_chunk2_size // LIST sub chunk size
-    );
-    printf("HEADER_SIZE: %ld\n", header_size);
-
-    char * data_header = read_str_slice(fp, header_size, header_size+100);
-    int data_header_is_valid = starts_with_word(data_header, "data");
-    printf("DATA_HEADER: %s\n", data_header);
-    // free(data_header);
-
-    if (!data_header_is_valid) {
-        printf("DATA HEADER IS INVALID");
-        exit(1);
-    }
-
-    unsigned long data_chunk_size = read_long_from_str_slice(
-        fp, header_size+4, header_size+8, 1
-    );
-
-    WavHeaders headers;
-    headers.chunk_id = chunk_id;
-    headers.chunk_size = (int) chunk_size;
-    headers.format = format_str;
-    // headers.filesize = filesize;
-
-    headers.sub_chunk_id = sub_chunk_id;
-    headers.sub_chunk1_size = (int) sub_chunk1_size;
-    headers.audio_format = (int) format;
-    headers.num_channels = (int) num_channels;
-    headers.sample_rate = (long) sample_rate;
-    headers.byte_rate = (int) byte_rate;
-    headers.block_align = (int) block_align;
-    headers.bits_per_sample = (int) bits_per_sample;
-    // headers.extra_params_size = (int) extra_params_size;
-    headers.extra_params = extra_params;
-    // headers.sub_chunk2_size = (int) sub_chunk2_size;
-    // headers.list_chunk_data = list_chunk;
-    headers.header_size=header_size;
-    headers.data_header = data_header; //(int) header_size;
-    headers.data_chunk_size = (int) data_chunk_size;
-    print_wav_headers(headers);
-    printf("%ld\n",data_chunk_size);
-    return headers;
-}
-
 
 long long get_max_int(unsigned int bits) {
     // get maximum positive integer with size bits
@@ -488,18 +382,8 @@ WavFile read_frames(FILE * fp) {
     // the 8 is for the data chunk name ("data")
     // and the 4 bytes for data chunk size
     const unsigned long data_start_idx = headers.header_size + 8;
+    unscaled_frames[num_samples] = 0;
     frames[num_samples] = 0;
-    unscaled_frames[num_samples]=0;
-    /*
-    // scan for junk chunks
-     char * raw_audio_data = read_str_slice(fp, raw_audio_start_index, headers.filesize-1);
-    for (int k=0; k<raw_data_length-4; k++) {
-        if (starts_with_word(raw_audio_data + k, "JUNK")) {
-            printf("JUNK FOUND\n");
-            exit(1);
-        }
-    }
-    */
 
     for (int k=0; k<num_samples; k++) {
         /*
@@ -536,7 +420,7 @@ WavFile read_frames(FILE * fp) {
     // free(raw_audio_data);
     // free_wav_headers(headers);
     WavFile wav_file;
-    wav_file.scale=max_signed_int_val;
+    wav_file.scale = (double) max_signed_int_val;
     wav_file.headers = headers;
     wav_file.frames = frames;
     wav_file.num_frames = num_samples;
@@ -577,7 +461,7 @@ WavParseResult read_wav_file(const char * filepath) {
         if ((k == 0) || (k % 10000 == 0)) {
             printf("ASSIGN %ld-%ld-%d\n", step_idx, channel_idx, k);
         }
-         */
+        */
         samples[channel_idx][step_idx] = read_result.frames[k];
     }
 
@@ -613,48 +497,41 @@ void write_wav(FILE * fp, WavFile file){
     fwrite(file.headers.data_header, 1, 4, fp);
     fwrite(&file.headers.data_chunk_size, 4, 1, fp); 
     fwrite(file.unscaled_frames,2,file.num_frames,fp); // Data size
-    // for (int i = 0; i < file.num_frames; i++)
-    // {   
-    //     fwrite(&file.unscaled_frames[i] , sizeof(int16_t), 1, fp);
-    // }
-
-
-    
+    /*
+    for (int i = 0; i < file.num_frames; i++) {
+        fwrite(&file.unscaled_frames[i] , sizeof(int16_t), 1, fp);
+    }
+    */
 }
 
-// int main(int argc, char ** argv){
-//     // WavParseResult result= read_wav_file("recycling.wav");
-//     // FILE *fp = fopen("write.wav", "r");
-//     // WavHeaders headers=read_wav_headers(fp);
-//     FILE *fp = fopen("recycling.wav", "r");
-//     WavFile file=read_frames(fp);
-    
-//     printf("num_frames:%ld",file.num_frames);
-//     for(int i=100000;i<100200;i++){
-//         printf("%d\n",file.unscaled_frames[i]);
-//     }
+/*
+int main(int argc, char ** argv){
+     // WavParseResult result= read_wav_file("recycling.wav");
+     // FILE *fp = fopen("write.wav", "r");
+     // WavHeaders headers=read_wav_headers(fp);
+     FILE *fp = fopen("recycling.wav", "r");
+     WavFile file=read_frames(fp);
 
-//     FILE * file_p = fopen("./write1.wav", "w");
-//     if(NULL == file_p)
-//         {
-//             printf("fopen failed in main");
-//             return 0;
-//         }
-        
+     printf("num_frames:%ld",file.num_frames);
+     for(int i=100000;i<100200;i++){
+         printf("%d",file.unscaled_frames[i]);
+     }
 
-//     // size_t write_count = fwrite(  &file.headers, 
-//     //                         78, 1,
-//     //                         file_p);
-//     // printf("write count: %ld\n", sizeof(WavHeaders));
+     FILE * file_p = fopen("./write1.wav", "w");
+     if (NULL == file_p) {
+         printf("fopen failed in main");
+         return 0;
+     }
 
-//     // write_count = fwrite(  &file.frames, 
-//     //                         2, file.num_frames,
-//     //                         file_p);
-                    
-//     // printf("write count: %ld\n", write_count);
-//     write_wav(file_p,file);
-//     fclose(fp);
-//     fclose(file_p);
+     size_t write_count = fwrite(&file.headers, 78, 1, file_p);
+     printf("write count: %ld", sizeof(WavHeaders));
 
-//     return 0;
-// }
+     write_count = fwrite(&file.frames, 2, file.num_frames, file_p);
+     printf("write count: %ld", write_count);
+     write_wav(file_p,file);
+     fclose(fp);
+     fclose(file_p);
+
+     return 0;
+ }
+ */
