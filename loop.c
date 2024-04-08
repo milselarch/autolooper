@@ -39,15 +39,68 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
     unsigned int i;
     unsigned int j;
 
+    short* start_peaks = (short*) malloc(duration * sizeof(short));
+    short* end_peaks = (short*) malloc(duration * 2 * sizeof(short));
+    unsigned short temp;
+    unsigned short peak;
+    short sample;
+
+    /* Determine range of values */
     for (i = 0; i < duration; i++) {
-        /* Calculate score for current offset */
-        score = 0;
-        for (j = 0; j < duration * channels; j += 1) {
-            diff = start_buf->data[j] - end_buf->data[i * channels + j];
-            score += diff * diff;
+        sample = start_buf->data[i * channels];
+        if (sample < 0) {
+            sample *= -1;
+        }
+        if (sample > peak) {
+            peak = sample;
+        }
+    }
+
+    /* Determine range for peaks */
+    peak *= 0.5;
+
+    /* Isolate peaks in start_buf (set all others to 0) */
+    for (i = 0; i < duration; i++) {
+        sample = start_buf->data[i * channels];
+        if (sample < 0) {
+            temp = sample * -1;
+        }
+        else {
+            temp = sample;
         }
 
-        /* Update best score */
+        if (temp > peak) {
+            start_peaks[i] = sample;
+        }
+        else {
+            start_peaks[i] = 0;
+        }
+    }
+
+    /* Isolate peaks in end_buf */
+    for (i = 0; i < duration * 2; i++) {
+        sample = end_buf->data[i * channels];
+        if (sample < 0) {
+            temp = sample * -1;
+        }
+        else {
+            temp = sample;
+        }
+
+        if (temp > peak) {
+            end_peaks[i] = sample;
+        }
+        else {
+            end_peaks[i] = 0;
+        }
+    }
+
+    for (i = 0; i < duration; i++) {
+        score = 0;
+        for (j = 0; j < duration; j++) {
+            diff = start_peaks[j] - end_peaks[i + j];
+            score += diff * diff;
+        }
         if (score < best_score) {
             best_score = score;
             best_offset = i;
@@ -56,27 +109,33 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
 
     printf("Best score: %lu\n", best_score);
     printf("Best offset: %d\n", best_offset);
+    free(start_peaks);
+    free(end_peaks);
     return best_offset;
 }
 
 /**
- * Finds the diff of the samples within the given window
+ * Simple, fast algorithm to find the diff of the samples within the given window
  * Averaged to account for window size
  */
-unsigned long find_difference(short* start_buf, short* end_buf, int window_size) {
+unsigned long find_difference(short* start_buf, short* end_buf, int window_size, unsigned long step_size) 
+{
     unsigned long diff = 0;
-    for (unsigned long i = 0; i < window_size; i += 100) {
-        long d = (long)(start_buf[i] - end_buf[i]);
+    unsigned long i;
+    long d;
+    for (i = 0; i < window_size; i += step_size) {
+        d = (long)(start_buf[i] - end_buf[i]);
         diff += d * d;
     }
-    return diff / window_size;
+    return (unsigned long) ((float)diff /(float)window_size);
 }
 
-int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned int* end_time_buf, int num_channels, int sample_rate, unsigned long window_size) {
+int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned int* end_time_buf, int num_channels, int sample_rate) 
+{
     unsigned long *start_offset_buf;
     unsigned long *end_offset_buf;
 
-    find_loop_points_auto_offsets(buf, start_offset_buf, end_offset_buf, num_channels, sample_rate, window_size);
+    find_loop_points_auto_offsets(buf, start_offset_buf, end_offset_buf, num_channels, sample_rate);
 
     *start_time_buf = (unsigned int)(*start_offset_buf / (sample_rate * num_channels));
     *end_time_buf = (unsigned int)(*end_offset_buf / (sample_rate * num_channels));
@@ -84,23 +143,14 @@ int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned in
     return 0;
 }
 
-/**
- * @param window_size Determines how far the similarity "lookahead" is, set to larger time values to prevent
- * segments close together in time to be considered as a loop.
- * However, this causes a problem when the "end" of the loop is not <window_size> seconds causing a mis-classification
- */
-int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, unsigned long* end_offset_buf, int num_channels, int sample_rate, unsigned long window_size) {
+int get_window_score(sndbuf* buf, unsigned long* start_offset_buf, unsigned long* end_offset_buf, int num_channels, int sample_rate, unsigned long window_size, unsigned long step_size) 
+{
     short *sample_data = buf->data;
-
+    unsigned long start, end;
     unsigned long best_end = 0L;
     unsigned long best_start = 0L;
-    unsigned long start, end;
     unsigned long best_score = ULONG_MAX;
     unsigned long score;
-
-    /* step_size MUST be set to sample_rate or less to allow find_loop_end to successfully find the loop point */
-    unsigned long step_size = (sample_rate / 6) * num_channels;
-    printf("Finding Loop...\n");
 
     for (start = 0; start <= buf->size - window_size * num_channels; start += step_size) {
         printf("\r%f%% -- best segment score: %lu", (float)start * 100 / (float)(buf->size - window_size), best_score);
@@ -111,7 +161,8 @@ int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, 
             score = find_difference(
                 sample_data + start,
                 sample_data + end,
-                window_size * num_channels);
+                window_size * num_channels,
+                100);
 
             /* Check if this is the best score found so far
             Equality to detect furthest loop (else may detect similar sections of same verse) */
@@ -121,14 +172,103 @@ int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, 
                 best_end = end / num_channels;
             }
         }
-        printf("\r                                                                                          ");
+        printf("\r                                                                                          \r");
     }
-
-    printf("\rLoop finding completed -------------------------\n");
-    printf("Best start time: %f\n", (float)best_start / sample_rate);
-    printf("Best end time: %f\n", (float)best_end / sample_rate);
     *start_offset_buf = best_start;
     *end_offset_buf = best_end;
+    return best_score;
+}
+
+/**
+ * @param window_size Determines how far the similarity "lookahead" is, set to larger time values to prevent
+ * segments close together in time to be considered as a loop.
+ * However, this causes a problem when the "end" of the loop is not <window_size> seconds causing a mis-classification
+ */
+int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, unsigned long* end_offset_buf, int num_channels, int sample_rate) {
+    short *sample_data = buf->data;
+
+    /* Candidate-finding window settings */
+    int best_win_size = -1;
+    int min_window_size = 10;
+    int max_window_size = 25;
+    int wind_step = 5; 
+
+    /* Output tracking */
+    unsigned long best_end = 0L;
+    unsigned long best_start = 0L;
+    unsigned long best_score = ULONG_MAX;
+    unsigned long score;
+
+    /* step_size MUST be set to sample_rate or less to allow find_loop_end to successfully find the loop point */
+    unsigned long step_size = (sample_rate / 10) * num_channels;
+    int best_diff_step_size = 100;
+
+    /* Collect best time candidates */
+    unsigned long* best_start_arr = (unsigned long *) malloc(sizeof(unsigned long) * (max_window_size / wind_step + 1));
+    unsigned long* best_end_arr = (unsigned long *) malloc(sizeof(unsigned long) * (max_window_size / wind_step + 1));
+    int best_arr_size = 0;
+
+    /* Iterator helpers */
+    unsigned long curr_start_offset;
+    unsigned long curr_end_offset;
+    int win_size;
+    int i;
+    printf("LOOP FINDING START ==============\n");
+    printf("Finding Loop candidates ...\n");
+
+    /* Find the best candidate for each window size */
+    for (win_size = min_window_size; win_size <= max_window_size; win_size += wind_step)
+    {
+        printf("\rWindow size: %d\n ----- ", win_size );
+        get_window_score(buf, start_offset_buf, end_offset_buf, num_channels, sample_rate, win_size * sample_rate, step_size);
+
+        best_start_arr[best_arr_size] =  *start_offset_buf / num_channels;
+        best_end_arr[best_arr_size] =  *end_offset_buf / num_channels;
+        best_arr_size ++;
+
+        printf("Best start time: %f\n", (float)*start_offset_buf / sample_rate);
+        printf("Best end time: %f\n", (float)*end_offset_buf / sample_rate);
+        
+    }
+
+    printf("Finding best candidate ...\n");
+
+    /* For the candidates narrowed down, find the best one */
+    for (i = 0; i < best_arr_size; i ++)
+    {
+        curr_start_offset = best_start_arr[i];
+        curr_end_offset = best_end_arr[i];
+
+        /* Calculate a difference score keeping window size constant. 
+        For convenience, standardize the window size to min_window_size.
+        */
+        score = find_difference(
+            sample_data + curr_start_offset, 
+            sample_data + curr_end_offset, 
+            min_window_size * num_channels, 
+            best_diff_step_size
+            );
+
+        if (score <= best_score) 
+        {
+            best_score = score;
+            best_end = curr_end_offset / num_channels;
+            best_start = curr_start_offset/ num_channels;
+            best_win_size = min_window_size + i * wind_step; /* Reporting purpose*/
+        }
+    }
+
+    *start_offset_buf = best_start;
+    *end_offset_buf = best_end;
+
+    free(best_start_arr);
+    free(best_end_arr);
+
+    printf("\rLoop finding completed -------------------------\n");
+    printf("Best approx start time: %f\n", (float)best_start / sample_rate);
+    printf("Best approx end time: %f\n", (float)best_end / sample_rate);
+    printf("Best window size: %d\n", best_win_size);
+    
     return 0;
 }
 
@@ -367,7 +507,7 @@ int _main (int argc, char** argv) {
 }
 
 
-int main (int argc, char** argv) {
+int __main (int argc, char** argv) {
     /* int i; */
 
     FILE *fp = fopen("recycling.wav", "r");
@@ -409,7 +549,7 @@ int main (int argc, char** argv) {
 
 
 
-int main_auto_loop(int argc, char **argv)
+int main(int argc, char **argv)
 {
     clock_t t;
     sndbuf all_smpl_buf;
@@ -418,8 +558,7 @@ int main_auto_loop(int argc, char **argv)
 
     /* int i; */
     FILE *fp;
-    fp = fopen("recycling.wav", "r");
-    int window_size_sec = 20;
+    fp = fopen("dppt_mono.wav", "r");
 
     FILE *file_p;
     WavFile file = read_frames(fp);
@@ -430,7 +569,7 @@ int main_auto_loop(int argc, char **argv)
     read_samples(&file, &all_smpl_buf, file.headers.num_channels, 0uL, file.num_frames);
 
     t = clock();
-    find_loop_points_auto_offsets(&all_smpl_buf, &start_offset, &end_offset, file.headers.num_channels, file.headers.sample_rate, file.headers.sample_rate * window_size_sec);
+    find_loop_points_auto_offsets(&all_smpl_buf, &start_offset, &end_offset, file.headers.num_channels, file.headers.sample_rate);
     t = clock() - t;
     printf("Loop finding Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
 
@@ -439,7 +578,7 @@ int main_auto_loop(int argc, char **argv)
     t = clock() - t;
     printf("Looping Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
 
-    file_p = fopen("./write2.wav", "w");
+    file_p = fopen("./write_dppt.wav", "w");
     if (NULL == file_p)
     {
         printf("fopen failed in main");
