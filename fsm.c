@@ -39,7 +39,7 @@ void processCharFileExt(FileExtFSM *fsm, char input_char) {
 void processCharNum(NumFSM *fsm, char input_char) {
 
     if(input_char<'0' || input_char>'9'){
-        fsm->currentState=STATE_1;
+        fsm->currentState=STATE_B;
 
     }
 
@@ -71,7 +71,7 @@ int runNumFsm(NumFSM *fsm, const char *str) {
         processCharNum(fsm,str[i]);
     }
 
-    if(fsm->currentState == STATE_A){
+    if(fsm->currentState == STATE_B){
         return 0;
     }
 
