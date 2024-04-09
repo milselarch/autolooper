@@ -39,68 +39,15 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
     unsigned int i;
     unsigned int j;
 
-    short* start_peaks = (short*) malloc(duration * sizeof(short));
-    short* end_peaks = (short*) malloc(duration * 2 * sizeof(short));
-    unsigned short temp;
-    unsigned short peak;
-    short sample;
-
-    /* Determine range of values */
     for (i = 0; i < duration; i++) {
-        sample = start_buf->data[i * channels];
-        if (sample < 0) {
-            sample *= -1;
-        }
-        if (sample > peak) {
-            peak = sample;
-        }
-    }
-
-    /* Determine range for peaks */
-    peak *= 0.5;
-
-    /* Isolate peaks in start_buf (set all others to 0) */
-    for (i = 0; i < duration; i++) {
-        sample = start_buf->data[i * channels];
-        if (sample < 0) {
-            temp = sample * -1;
-        }
-        else {
-            temp = sample;
-        }
-
-        if (temp > peak) {
-            start_peaks[i] = sample;
-        }
-        else {
-            start_peaks[i] = 0;
-        }
-    }
-
-    /* Isolate peaks in end_buf */
-    for (i = 0; i < duration * 2; i++) {
-        sample = end_buf->data[i * channels];
-        if (sample < 0) {
-            temp = sample * -1;
-        }
-        else {
-            temp = sample;
-        }
-
-        if (temp > peak) {
-            end_peaks[i] = sample;
-        }
-        else {
-            end_peaks[i] = 0;
-        }
-    }
-
-    for (i = 0; i < duration; i++) {
+        /* Calculate score for current offset */
         score = 0;
-        for (j = 0; j < duration; j++) {
-            diff = start_peaks[j] - end_peaks[i + j];
+        for (j = 0; j < duration * channels; j += 1) {
+            diff = start_buf->data[j] - end_buf->data[i * channels + j];
             score += diff * diff;
         }
+
+        /* Update best score */
         if (score < best_score) {
             best_score = score;
             best_offset = i;
@@ -109,8 +56,36 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
 
     printf("Best score: %lu\n", best_score);
     printf("Best offset: %d\n", best_offset);
-    free(start_peaks);
-    free(end_peaks);
+    return best_offset;
+}
+
+
+unsigned long find_loop_end_short_arr (short* start_buf, short* end_buf, unsigned long size, int channels) {
+    unsigned long duration = size / channels;
+    unsigned int best_offset = 0;
+    unsigned long best_score = ULONG_MAX;
+    unsigned long score;
+    int diff;
+    unsigned int i;
+    unsigned int j;
+
+    for (i = 0; i < duration; i++) {
+        /* Calculate score for current offset */
+        score = 0;
+        for (j = 0; j < duration * channels; j += 1) {
+            diff = start_buf[j] - end_buf[i * channels + j];
+            score += diff * diff;
+        }
+
+        /* Update best score */
+        if (score < best_score) {
+            best_score = score;
+            best_offset = i;
+        }
+    }
+
+    printf("Best score: %lu\n", best_score);
+    printf("Best offset: %d\n", best_offset);
     return best_offset;
 }
 
@@ -191,13 +166,9 @@ int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, 
     unsigned long score;
 
     /* step_size MUST be set to sample_rate or less to allow find_loop_end to successfully find the loop point */
-    unsigned long step_size = (sample_rate / 10) * num_channels;
-    int best_diff_step_size = 100;
+    unsigned long step_size = (sample_rate / 6) * num_channels;
+    int best_diff_step_size = 1;
 
-    /* Collect best time candidates */
-    unsigned long* best_start_arr = (unsigned long *) malloc(sizeof(unsigned long) * (max_window_size / wind_step + 1));
-    unsigned long* best_end_arr = (unsigned long *) malloc(sizeof(unsigned long) * (max_window_size / wind_step + 1));
-    int best_arr_size = 0;
 
     /* Iterator helpers */
     unsigned long curr_start_offset;
@@ -214,47 +185,43 @@ int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, 
         get_window_score(buf, start_offset_buf, end_offset_buf, num_channels, sample_rate, win_size * sample_rate, step_size);
 
 
-        best_start_arr[best_arr_size] =  *start_offset_buf / num_channels;
-        best_end_arr[best_arr_size] =  *end_offset_buf / num_channels;
-        best_arr_size ++;
+        curr_start_offset =  *start_offset_buf / num_channels ;
+        curr_end_offset =  *end_offset_buf / num_channels - step_size/2;
 
+        /* take half a step back for possibility that match point occurs before */
+        curr_start_offset =  (curr_start_offset < step_size/2) ? curr_start_offset : curr_start_offset - step_size/2;
+        curr_end_offset =  (curr_end_offset < step_size/2) ? curr_end_offset : curr_end_offset - step_size/2;
+        
         printf("Best start time: %f\n", (float)*start_offset_buf / sample_rate);
         printf("Best end time: %f\n", (float)*end_offset_buf / sample_rate);
-        
-    }
 
-    printf("Finding best candidate ...\n");
+        curr_end_offset = curr_end_offset + find_loop_end_short_arr(
+            sample_data + curr_start_offset, 
+            sample_data + curr_end_offset, 
+            sample_rate * num_channels, 
+            sample_rate
+            );
 
-    /* For the candidates narrowed down, find the best one */
-    for (i = 0; i < best_arr_size; i ++)
-    {
-        curr_start_offset = best_start_arr[i];
-        curr_end_offset = best_end_arr[i];
-
-        /* Calculate a difference score keeping window size constant. 
-        For convenience, standardize the window size to min_window_size.
-        */
         score = find_difference(
             sample_data + curr_start_offset, 
             sample_data + curr_end_offset, 
-            min_window_size * num_channels, 
+            min_window_size * sample_rate * num_channels, 
             best_diff_step_size
             );
 
+        printf("Score: %lu\n", score);
         if (score <= best_score) 
         {
             best_score = score;
             best_end = curr_end_offset / num_channels;
             best_start = curr_start_offset/ num_channels;
-            best_win_size = min_window_size + i * wind_step; /* Reporting purpose*/
+            best_win_size = win_size; /* Reporting purpose*/
         }
     }
 
+
     *start_offset_buf = best_start;
     *end_offset_buf = best_end;
-
-    free(best_start_arr);
-    free(best_end_arr);
 
     printf("\rLoop finding completed -------------------------\n");
     printf("Best approx start time: %f\n", (float)best_start / sample_rate);
@@ -563,7 +530,7 @@ int main(int argc, char **argv)
 
     /* int i; */
     FILE *fp;
-    fp = fopen("dppt_mono.wav", "r");
+    fp = fopen("recycling_mono.wav", "r");
 
     FILE *file_p;
     WavFile file = read_frames(fp);
@@ -583,7 +550,7 @@ int main(int argc, char **argv)
     t = clock() - t;
     printf("Looping Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
 
-    file_p = fopen("./write_dppt.wav", "w");
+    file_p = fopen("./write_recycling.wav", "w");
     if (NULL == file_p)
     {
         printf("fopen failed in main");
