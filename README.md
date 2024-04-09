@@ -7,7 +7,7 @@ ffmpeg used commands to generate uncompressed wav files
 `ffmpeg -i recycling.mp4 -acodec pcm_s16le -ac 1 recycling_mono.wav`
 
 Command to build test the C code standalone:  
-`gcc -ansi -pedantic -Wall -Werror -std=c11 main.c -o main && ./main recycling_mono.wav`
+`gcc -ansi -pedantic -Wall -Werror main.c -o main && ./main recycling_mono.wav`
 
 Command to run python testing code
 1. Python environment setup  
