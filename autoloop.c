@@ -26,6 +26,8 @@ int find_loop_points_auto(sndbuf* buf, unsigned int* start_time_buf, unsigned in
     unsigned long *start_offset_buf;
     unsigned long *end_offset_buf;
 
+    start_offset_buf = (unsigned long *) malloc(sizeof(unsigned long));
+    end_offset_buf = (unsigned long *) malloc(sizeof(unsigned long));
     find_loop_points_auto_offsets(buf, start_offset_buf, end_offset_buf, num_channels, sample_rate, window_size);
 
     *start_time_buf = (unsigned int)(*start_offset_buf / (sample_rate * num_channels));
