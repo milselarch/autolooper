@@ -8,4 +8,4 @@ int find_loop_points_auto_offsets(sndbuf* buf, unsigned long* start_offset_buf, 
 
 int loop_with_offsets (WavFile* f, unsigned long start_offset, unsigned long end_offset, unsigned int min_length, WavFile* fout);
 
-int auto_loop (FILE* fp, FILE* fpout);
+int auto_loop (FILE* fp, FILE* fpout, unsigned long min_length);

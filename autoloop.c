@@ -304,7 +304,7 @@ int loop_with_offsets(WavFile* f, unsigned long start_offset, unsigned long end_
 }
 
 /* TODO: add docs, add loop length*/
-int auto_loop(FILE* fp, FILE* fpout)
+int auto_loop(FILE* fp, FILE* fpout, unsigned long min_length)
 {
     clock_t t;
     sndbuf all_smpl_buf;
@@ -324,9 +324,8 @@ int auto_loop(FILE* fp, FILE* fpout)
     t = clock() - t;
     printf("Loop finding Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
 
-    /* TODO: duration is hardcoded*/
     t = clock();
-    loop_with_offsets(&file, start_offset, end_offset, 300, &loop_file);
+    loop_with_offsets(&file, start_offset, end_offset, min_length, &loop_file);
     t = clock() - t;
     printf("Looping Time taken: %fs\n", ((double)t) / CLOCKS_PER_SEC);
 

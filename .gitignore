@@ -54,7 +54,7 @@ dkms.conf
 
 # Sound files
 *.flac
-interception.wav
+interception*
 
 # editor config
 .idea/
