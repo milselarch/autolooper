@@ -31,7 +31,7 @@ unsigned long find_difference(short* buf1, short* buf2, int window_size, unsigne
     return (unsigned long) ((float)diff /(float)i);
 }
 
-/* 
+/*
 // Alternative slow precise scorer, using FFT. Requires #include <fftw3.h>
 unsigned long find_frequency_difference(short* start_buf, short* end_buf, int buf_size)
 {
@@ -317,7 +317,7 @@ int auto_loop(FILE* fp, FILE* fpout)
     loop_file.headers = file.headers;
 
     /* Auto looping*/
-    read_samples(&file, &all_smpl_buf, file.headers.num_channels, 0uL, file.num_frames);
+    read_samples(&file, &all_smpl_buf, file.headers.num_channels, 0uL, file.num_frames / file.headers.num_channels);
 
     t = clock();
     find_loop_points_auto_offsets(&all_smpl_buf, &start_offset, &end_offset, file.headers.num_channels, file.headers.sample_rate);
