@@ -1,5 +1,5 @@
-default: loop.c parse_wav.c
-	gcc loop.c parse_wav.c -o loop
+default: main.c fsm.c fsm.h parse_wav.c parse_wav.h autoloop.c autoloop.h loop.c loop.h
+	gcc main.c fsm.c parse_wav.c autoloop.c loop.c -o main
 
-ansi: loop.c parse_wav.c
-	gcc loop.c parse_wav.c -o loop -ansi -pedantic -Wall -Werror
+ansi: main.c fsm.c fsm.h parse_wav.c parse_wav.h autoloop.c autoloop.h loop.c loop.h
+	gcc main.c fsm.c parse_wav.c autoloop.c loop.c -o main -ansi -pedantic -Wall -Werror
