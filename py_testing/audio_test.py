@@ -16,7 +16,7 @@ class WavParseResult(ctypes.Structure):
     ]
 
 
-# Assuming the compiled shared library is named example.so
+# Assuming the compiled shared library is named parse_wav.so
 lib = ctypes.CDLL('./parse_wav.so')
 lib.read_wav_file.restype = WavParseResult
 lib.read_wav_file.argtypes = [ctypes.c_char_p]
@@ -30,6 +30,7 @@ def parse_wav(filepath: str) -> tuple[np.ndarray, int]:
     samples_arr = np.empty(
         (result.num_channels, result.num_samples), dtype=np.float16
     )
+
 
     for k in range(result.num_channels):
         for i in range(result.num_samples):

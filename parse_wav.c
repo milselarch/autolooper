@@ -102,6 +102,14 @@ int starts_with_word(const char * text, const char * word) {
 unsigned long byte_str_to_long(
     char * string, int is_little_endian, unsigned long length
 ) {
+    /*
+     * converts a byte string to an unsigned long,
+     * assuming that the byte string
+     * :param: is_little_endian
+     * whether MSB is in the last char in the byte string
+     * note that it seems that little endian is always
+     * used for representing audio sample values
+     */
     unsigned long result;
     int k;
 
@@ -132,6 +140,10 @@ unsigned long byte_str_to_long(
             current_char = (unsigned char) string[length-k-1];
         }
 
+        /*
+         * shift the current char by k bytes (8*k bits)
+         * and add it to result
+        */
         result |= current_char << (8 * k);
     }
     return result;
@@ -259,12 +271,17 @@ void print_wav_headers(WavHeaders headers) {
 }
 
 WavHeaders read_wav_headers(FILE * fp) {
+    /*
+     * reads the header fields from the wav file
+    */
     char * chunk_id;
     unsigned long chunk_size;
     char * sub_chunk_id;
     unsigned long sub_chunk1_size;
     unsigned long format;
+    /* number of auto channels in the wav file */
     unsigned long num_channels;
+    /* number of audio data samples per second of audio */
     unsigned long sample_rate;
     unsigned long byte_rate;
     unsigned long block_align;
@@ -383,7 +400,6 @@ long get_max_int(unsigned int bits) {
     int k;
 
     result = 1;
-    k = 1;
 
     for (k=1; k<bits; k++) {
         result *= 2;
@@ -394,6 +410,10 @@ long get_max_int(unsigned int bits) {
 }
 
 WavFile read_frames(FILE * fp) {
+    /*
+    * reads the wav file headers as well as
+    * the raw audio data from the file
+    */
     WavHeaders headers = read_wav_headers(fp);
     /*
     char * raw_audio_data = read_str_slice(fp, start_index + 8, headers.filesize);
@@ -445,6 +465,13 @@ WavFile read_frames(FILE * fp) {
     frames[num_samples] = 0;
 
     for (k=0; k<num_samples; k++) {
+        /*
+         * Each audio sample is a contiguous sequence of
+         * 1 / 2 / 4 bytes in the file containing an unsigned integer
+         * representing the raw amplitude of the audio sample.
+         * In librosa the values are scaled to a range of -1 to 1
+         * so we do the same here as well
+        */
         unsigned long slice_start_idx, slice_end_idx;
         short unscaled_frame;
         double scaled_frame;
@@ -476,7 +503,7 @@ WavFile read_frames(FILE * fp) {
         }
 
         frames[k] = scaled_frame;
-        unscaled_frames[k]=unscaled_frame;
+        unscaled_frames[k] = unscaled_frame;
     }
 
     printf("SLICE_END\n");
@@ -491,6 +518,18 @@ WavFile read_frames(FILE * fp) {
 }
 
 WavParseResult read_wav_file(const char * filepath) {
+    /*
+     * reads the wav file headers as well as
+     * the raw audio data from the file. The difference between this
+     * and the read_frames function is that the returned WavParseResult
+     * here throws away most of the information that isn't needed in
+     * auto loop computation, and that the audio data here is
+     * formatted as a shape [num_channels, samples_per_channel]
+     * array instead of a 1D array like in read_frames
+     *
+     * Note: right now this is only being used in the python testing
+     * script
+     */
     WavParseResult wav_parse_result;
     long num_channels;
     double ** samples;
