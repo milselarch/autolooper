@@ -142,7 +142,7 @@ void crossfade_samples (sndbuf* src_buf, short* dst, sndbuf* crossfade_buf, unsi
 void extend_audio (sndbuf* extended_buf, sndbuf* intro_buf, sndbuf* loop_buf, sndbuf* ending_buf, unsigned int num_loops) {
     short* seek_ptr;
     unsigned int loop_ctr;
-    int first = 1;
+    /* int first = 1; */
 
     /* Create a buffer for the extended audio */
     extended_buf->size = intro_buf->size + loop_buf->size * num_loops + ending_buf->size;
@@ -155,14 +155,17 @@ void extend_audio (sndbuf* extended_buf, sndbuf* intro_buf, sndbuf* loop_buf, sn
 
     /* Copy loops */
     for (loop_ctr = 0; loop_ctr < num_loops; loop_ctr++) {
-        /* copy_samples(loop_buf, seek_ptr); */
+        copy_samples(loop_buf, seek_ptr);
 
+        /*
         if (first) 
             copy_samples(loop_buf, seek_ptr);
         else 
             crossfade_samples(loop_buf, seek_ptr, ending_buf, 4 * 44100);
-        seek_ptr += loop_buf->size;
         first = 0;
+        */
+
+        seek_ptr += loop_buf->size;
 
     }
 
