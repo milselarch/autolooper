@@ -79,6 +79,25 @@ unsigned long find_loop_end (sndbuf* start_buf, sndbuf* end_buf, int channels) {
 }
 
 /**
+ * Finds the closest matching looping point from the end timestamp
+ * @param start_buf - A short array for the samples at the start of the loop
+ * @param end_buf - A short array for the samples at the end of the loop
+ * @param start_buf_size - Array size for start_buf
+ * @param end_buf_size - Array size for end_buf
+ * @param channels - The number of channels in the audio
+ * @return The optimal offset in end_buf
+ */
+unsigned long find_loop_end_short_arr (short* start_buf, unsigned long start_buf_size, short* end_buf, unsigned long end_buf_size, int channels) {
+    sndbuf start_sndbuf, end_sndbuf;
+    start_sndbuf.size = start_buf_size;
+    start_sndbuf.data = start_buf;
+    end_sndbuf.size = end_buf_size;
+    end_sndbuf.data = end_buf;
+    
+    return find_loop_end(&start_sndbuf, &end_sndbuf, channels);
+}
+
+/**
  * Copies samples from a sndbuf to a regular short buffer
  * @param src_buf - The pointer to the sndbuf to copy from
  * @param dst - The short buffer to copy into
@@ -87,6 +106,28 @@ void copy_samples (sndbuf* src_buf, short* dst) {
     unsigned int i;
     for (i = 0; i < src_buf->size; i++) {
         dst[i] = src_buf->data[i];
+    }
+}
+
+/**
+ * Copies the samples from a sndbuf to a regular short buffer, with crossfading.
+ * Crossfading is performed by averaging the amplitudes between both buffers, for crossfade_dist offset frames
+ * TODO: check if this is compatible with stereo files
+ * @param src_buf - The pointer to the sndbuf to copy from (fade in)
+ * @param dst - The short buffer to copy into
+ * @param crossfade_buf - The pointer to the sndbuf to crossfade with (fade out)
+ * @param crossfade_dist - Distance, in offset number, to crossfade into
+*/
+void crossfade_samples (sndbuf* src_buf, short* dst, sndbuf* crossfade_buf, unsigned long crossfade_dist) {
+    unsigned int i;
+    for (i = 0; i < src_buf->size; i++) {
+        if (i < crossfade_dist && i < crossfade_buf->size) {
+            float proportion = i / (float)crossfade_dist;
+            dst[i] = (short)(int)(src_buf->data[i] * proportion) + (short)(int)(crossfade_buf->data[i] * (1-proportion));
+        }
+        else {
+            dst[i] = src_buf->data[i];
+        }
     }
 }
 
@@ -101,6 +142,7 @@ void copy_samples (sndbuf* src_buf, short* dst) {
 void extend_audio (sndbuf* extended_buf, sndbuf* intro_buf, sndbuf* loop_buf, sndbuf* ending_buf, unsigned int num_loops) {
     short* seek_ptr;
     unsigned int loop_ctr;
+    /* int first = 1; */
 
     /* Create a buffer for the extended audio */
     extended_buf->size = intro_buf->size + loop_buf->size * num_loops + ending_buf->size;
@@ -114,7 +156,17 @@ void extend_audio (sndbuf* extended_buf, sndbuf* intro_buf, sndbuf* loop_buf, sn
     /* Copy loops */
     for (loop_ctr = 0; loop_ctr < num_loops; loop_ctr++) {
         copy_samples(loop_buf, seek_ptr);
+
+        /*
+        if (first) 
+            copy_samples(loop_buf, seek_ptr);
+        else 
+            crossfade_samples(loop_buf, seek_ptr, ending_buf, 4 * 44100);
+        first = 0;
+        */
+
         seek_ptr += loop_buf->size;
+
     }
 
     /* Copy ending */

@@ -20,11 +20,45 @@ int main (int argc, char** argv) {
     NumFSM numFsm;
 
     /* Perform checks on input */
-    if (argc != 3 && argc != 6) {
+    if (argc != 4 && argc != 6) {
         printf("ERROR: Insufficient number of arguments!\n");
-        printf("Usage: ./main INPUT_FILE OUTPUT_FILE [START_TIME] [END_TIME] [MIN_LENGTH]\n");
+        printf("Usage: ./main INPUT_FILE OUTPUT_FILE MIN_LENGTH [START_TIME] [END_TIME]\n");
         printf("START_TIME, END_TIME and MIN_LENGTH should be provided in seconds\n");
         return 1;
+    }
+
+    /* Check min length */
+    initNumFSM(&numFsm);
+    res = runNumFsm(&numFsm, argv[3]);
+    if (!res) {
+        printf("ERROR: Invalid min length!\n");
+        return 1;
+    }
+    min_length = strtoul(argv[3], &end_ptr, 10);
+
+    if (argc > 4) {
+        /* Check start time */
+        initNumFSM(&numFsm);
+        res=runNumFsm(&numFsm, argv[4]);
+        if (!res) {
+            printf("ERROR: Invalid start time!\n");
+            return 1;
+        }
+        start_time = strtoul(argv[4], &end_ptr, 10);
+
+        /* Check end time */
+        initNumFSM(&numFsm);
+        res = runNumFsm(&numFsm, argv[5]);
+        if (!res) {
+            printf("ERROR: Invalid end time!\n");
+            return 1;
+        }
+        end_time = strtoul(argv[5], &end_ptr, 10);
+
+        if (start_time > end_time) {
+            printf("ERROR: Start time is after end time!\n");
+            return 1;
+        }
     }
 
     /* Check read file */
@@ -57,42 +91,10 @@ int main (int argc, char** argv) {
         return 1;
     }
 
-    if (argc == 3) {
-        res = auto_loop(fp, fpout);
+    if (argc == 4) {
+        res = auto_loop(fp, fpout, min_length);
         return res;
     }
-
-    /* Check start time */
-    initNumFSM(&numFsm);
-    res=runNumFsm(&numFsm, argv[3]);
-    if (!res) {
-        printf("ERROR: Invalid start time!\n");
-        return 1;
-    }
-    start_time = strtoul(argv[3], &end_ptr, 10);
-
-    /* Check end time */
-    initNumFSM(&numFsm);
-    res = runNumFsm(&numFsm, argv[4]);
-    if (!res) {
-        printf("ERROR: Invalid end time!\n");
-        return 1;
-    }
-    end_time = strtoul(argv[4], &end_ptr, 10);
-
-    if (start_time > end_time) {
-        printf("ERROR: Start time is after end time!\n");
-        return 1;
-    }
-
-    /* Check min length */
-    initNumFSM(&numFsm);
-    res = runNumFsm(&numFsm, argv[5]);
-    if (!res) {
-        printf("ERROR: Invalid min length!\n");
-        return 1;
-    }
-    min_length = strtoul(argv[5], &end_ptr, 10);
 
     /* Extend audio and write to new file */
     f = read_frames(fp);
