@@ -54,10 +54,6 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# Sound files
-*.flac
-interception*
-
 # editor config
 .idea/
 # python virtual environment
