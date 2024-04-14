@@ -232,7 +232,7 @@ void print_wav_headers(WavHeaders headers) {
     printf("BLOCK_ALIGN: %ld\n", headers.block_align);
     printf("BITS_PER_SAMPLE: %ld\n", headers.bits_per_sample);
     /* printf("EXTRA_PARAMS_SIZE: %ld\n", headers.extra_params_size); */
-    printf("EXTRA_PARAMS: %s\n", headers.extra_params);
+    printf("EXTRA_PARAMS: [%s]\n", headers.extra_params);
     printf("DATA_HEADER: %s\n", headers.data_header);
     printf("DATA_CHUNK_SIZE: %ld\n", headers.data_chunk_size);
     printf("---- WAV FILE HEADERS END ----\n");
@@ -327,9 +327,7 @@ WavHeaders read_wav_headers(FILE * fp) {
         extra_params_index += 8 + sub_chunk_size;
     }
 
-    printf("EXTRA_PARAMS_SIZE %lu\n", extra_params_size);
     extra_params = read_str_slice(fp, 36, extra_params_index);
-    printf("extra params: %s\n", extra_params);
     header_size = (
         4 + /* for RIFF initial chunk header */
         4 + /* overall chunk size info */
@@ -585,7 +583,7 @@ void write_wav(FILE * fp, WavFile file){
     fwrite(&file.headers.byte_rate, 4, 1, fp);
     fwrite(&file.headers.block_align, 2, 1, fp);
     fwrite(&file.headers.bits_per_sample, 2, 1, fp);
-    fwrite(file.headers.extra_params, 1, 4, fp);
+    fwrite(file.headers.extra_params, 1, file.headers.extra_params_size, fp);
 
     /* Marks the start of the data */
     fwrite(file.headers.data_header, 1, 4, fp);

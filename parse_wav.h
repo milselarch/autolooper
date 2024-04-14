@@ -17,6 +17,7 @@ typedef struct {
      */
     long bits_per_sample;
     long extra_params_size;
+    /* contains data for all sub-chunks between "fmt " and "data" sub-chunks */
     char * extra_params;
 
     long sub_chunk2_size;
