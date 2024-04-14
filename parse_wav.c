@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdint.h>
 
 const int DEBUG_INDEX = 31910;
 
@@ -171,6 +170,7 @@ int is_str_equal(const char * string1, const char * string2) {
 char * read_str_slice(
     FILE *fp, unsigned long start_index, unsigned long end_index
 ) {
+    /* reads a string from a wav file stream */
     unsigned long str_size;
     unsigned long k;
     char * str_slice;
@@ -206,6 +206,7 @@ unsigned long read_long_from_str_slice(
     FILE *fp, unsigned long start_index, unsigned long end_index,
     int is_little_endian
 ) {
+    /* reads a long from the wav file stream */
     unsigned long length;
     char * raw_str_slice;
     unsigned long value;
@@ -453,8 +454,10 @@ WavFile read_frames(FILE * fp) {
     num_samples = headers.data_chunk_size / sample_size;
     printf("NUM_SAMPLES %ld\n", num_samples);
 
-    frames = (double *) malloc((num_samples + 1) * sizeof(double));
+    /* raw unscaled audio amplitude values */
     unscaled_frames = (short*) malloc((num_samples + 1) * sizeof(short));
+    /* audio amplitude values scaled from -1 to 1 */
+    frames = (double *) malloc((num_samples + 1) * sizeof(double));
 
     /*
     the 8 is for the data chunk name ("data")
