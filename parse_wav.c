@@ -287,6 +287,7 @@ WavHeaders read_wav_headers(FILE * fp) {
     unsigned long byte_rate;
     unsigned long block_align;
     unsigned long bits_per_sample;
+    /* unsigned long extra_params_size; */
     char * extra_params;
 
     unsigned long sub_chunk2_size;
