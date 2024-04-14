@@ -420,11 +420,8 @@ WavFile read_frames(FILE * fp) {
         case 16:
             max_signed_int_val = get_max_int(16);
             break;
-        case 32:
-            max_signed_int_val = get_max_int(32);
-            break;
         default:
-            printf("INVALID_BITS_PER_SAMPLE");
+            printf("INVALID_BITS_PER_SAMPLE %ld\n", headers.bits_per_sample);
             exit(1);
     }
     
