@@ -5,14 +5,6 @@
 
 const int DEBUG_INDEX = 36;
 
-typedef struct {
-    double ** samples;
-    unsigned long num_frames;
-    unsigned long sample_rate;
-    unsigned long num_channels;
-    unsigned long num_samples;
-} WavParseResult;
-
 void free_wav_headers(WavHeaders headers) {
     free(headers.chunk_id);
     free(headers.format);

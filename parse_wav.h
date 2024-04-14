@@ -35,8 +35,49 @@ typedef struct {
     short * unscaled_frames;
 } WavFile;
 
-WavFile read_frames(FILE * fp);
+typedef struct {
+    double ** samples;
+    unsigned long num_frames;
+    unsigned long sample_rate;
+    unsigned long num_channels;
+    unsigned long num_samples;
+} WavParseResult;
 
-void write_wav(FILE * fp, WavFile file);
+void free_wav_headers (WavHeaders headers);
+
+void free_wav_file (WavFile wav_file);
+
+void free_wav_parse_result (WavParseResult wav_parse_result);
+
+int starts_with_word (const char * text, const char * word);
+
+unsigned long byte_str_to_long (
+    char * string, int is_little_endian, unsigned long length
+);
+
+int is_str_equal (const char * string1, const char * string2);
+
+char * read_str_slice (
+    FILE *fp, unsigned long start_index, unsigned long end_index
+);
+
+unsigned long read_long_from_str_slice (
+    FILE *fp, unsigned long start_index, unsigned long end_index,
+    int is_little_endian
+);
+
+char * slice_str (const char * source_str, size_t start, size_t end);
+
+void print_wav_headers (WavHeaders headers);
+
+WavHeaders read_wav_headers (FILE * fp);
+
+long get_max_int (unsigned int bits);
+
+WavFile read_frames (FILE * fp);
+
+WavParseResult read_wav_file (const char * filepath);
+
+void write_wav (FILE * fp, WavFile file);
 
 
