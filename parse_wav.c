@@ -1,44 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "parse_wav.h"
 
-const int DEBUG_INDEX = 31910;
-
-typedef struct {
-    char * chunk_id;
-    long chunk_size; 
-    char * format; 
-    /* long filesize; */
-
-    char * sub_chunk_id; 
-    long sub_chunk1_size; 
-    long audio_format; 
-    long num_channels; 
-    long sample_rate; 
-    long byte_rate; 
-    long block_align; 
-    /*
-    number of bits needed to represent
-    each floating point number amplitude sample
-    */
-    long bits_per_sample;
-    /* long extra_params_size; */
-    char * extra_params;
-
-    long sub_chunk2_size;
-    char * list_chunk_data;
-    char * data_header;
-    long header_size;
-    long data_chunk_size;
-} WavHeaders;
-
-typedef struct {
-    WavHeaders headers;
-    double * frames;
-    unsigned long num_frames;
-    double scale;
-    short * unscaled_frames;
-} WavFile;
+const int DEBUG_INDEX = 36;
 
 typedef struct {
     double ** samples;
@@ -191,10 +156,13 @@ char * read_str_slice(
         fseek(fp, (long) k, SEEK_SET);
         str_slice_index = (long) k - (long) start_index;
         fget_result = fgetc(fp);
+
         if (fget_result == EOF) {
             printf("END_OF_FILE REACHED");
             exit(1);
         }
+
+        /* printf("DD %lu\n %c\n", k, (char) fget_result); */
         str_slice[str_slice_index] = (char) fget_result;
     }
 
@@ -213,8 +181,8 @@ unsigned long read_long_from_str_slice(
     int k;
 
     length = end_index - start_index;
-
     raw_str_slice = read_str_slice(fp, start_index, end_index);
+
     if (start_index == DEBUG_INDEX) {
         for (k=0; k<length; k++) {
             printf(
@@ -265,7 +233,6 @@ void print_wav_headers(WavHeaders headers) {
     printf("BITS_PER_SAMPLE: %ld\n", headers.bits_per_sample);
     /* printf("EXTRA_PARAMS_SIZE: %ld\n", headers.extra_params_size); */
     printf("EXTRA_PARAMS: %s\n", headers.extra_params);
-    printf("SUB_CHUNK2_SIZE: %ld\n", headers.sub_chunk2_size);
     printf("DATA_HEADER: %s\n", headers.data_header);
     printf("DATA_CHUNK_SIZE: %ld\n", headers.data_chunk_size);
     printf("---- WAV FILE HEADERS END ----\n");
@@ -287,11 +254,10 @@ WavHeaders read_wav_headers(FILE * fp) {
     unsigned long byte_rate;
     unsigned long block_align;
     unsigned long bits_per_sample;
-    /* unsigned long extra_params_size; */
+    unsigned long extra_params_size;
+    unsigned long extra_params_index;
     char * extra_params;
 
-    unsigned long sub_chunk2_size;
-    char * list_chunk;
     unsigned long header_size;
     char * data_header;
     int data_header_is_valid;
@@ -312,7 +278,7 @@ WavHeaders read_wav_headers(FILE * fp) {
     }
 
     chunk_size = read_long_from_str_slice(fp, 4, 8, 1);
-    printf("chunk size: %ld",chunk_size);
+    printf("chunk size: %ld\n",chunk_size);
     format_str = read_str_slice(fp, 8, 12);
     if (!is_str_equal(format_str, "WAVE")) {
         printf("WAV FORMAT IS NOT WAVE: %s\n", format_str);
@@ -330,20 +296,40 @@ WavHeaders read_wav_headers(FILE * fp) {
     block_align = read_long_from_str_slice(fp, 32, 34, 1);
     bits_per_sample = read_long_from_str_slice(fp, 34, 36, 1);
 
-    if (sub_chunk1_size != 16) {
-        unsigned long extra_params_size = read_long_from_str_slice(
-            fp, 36, 38, 1
-        );
-        extra_params = read_str_slice(fp, 38, 38 + extra_params_size);
-        printf("extra params: %s\n",extra_params);
-    }
-    extra_params = read_str_slice(fp, 36, 40);
-    printf("extra params: %s\n",read_str_slice(fp, 36, 40)); 
+    /*
+     * retrieve size of all unnecessary chunks between the
+     * "fmt " and "data" sub-chunks
+    */
+    /* length of data for all unnecessary chunks */
+    extra_params_size = 0;
+    /* data after "fmt " sub-chunk starts from index 36 */
+    extra_params_index = 36;
+    while (1) {
+        char * header;
+        int is_data_header;
+        unsigned long sub_chunk_size;
 
-    /* size in bytes of LIST chunk */
-    sub_chunk2_size = read_long_from_str_slice(fp, 40, 44, 1);
-    list_chunk = read_str_slice(fp, 44, 44+sub_chunk2_size);
-    printf("list chunk: %s\n",list_chunk); 
+        header = read_str_slice(fp, extra_params_index, extra_params_index+4);
+        is_data_header = is_str_equal("data", header);
+        /* printf("IDX %lu\n", extra_params_index); */
+        /* printf("HEADER %s\n", header); */
+        free(header);
+
+        if (is_data_header) { break; }
+
+        /* sub-chunk size starts 4 bytes from sub-chunk start, consumes 8 bytes */
+        sub_chunk_size = read_long_from_str_slice(
+            fp, extra_params_index+4, extra_params_index+8, 1
+        );
+
+        /* sub-chunk name + size info consumes 8 bytes */
+        extra_params_size += 8 + sub_chunk_size;
+        extra_params_index += 8 + sub_chunk_size;
+    }
+
+    printf("EXTRA_PARAMS_SIZE %lu\n", extra_params_size);
+    extra_params = read_str_slice(fp, 36, extra_params_index);
+    printf("extra params: %s\n", extra_params);
     header_size = (
         4 + /* for RIFF initial chunk header */
         4 + /* overall chunk size info */
@@ -351,9 +337,7 @@ WavHeaders read_wav_headers(FILE * fp) {
         4 + /* fmt sub chunk header */
         4 + /* fmt sub chunk size info */
         sub_chunk1_size + /* WAVE sub chunk size */
-        4 + /* LIST sub chunk header */
-        4 + /* LIST sub chunk info size */
-        sub_chunk2_size /* LIST sub chunk size */
+        extra_params_size
     );
     printf("HEADER_SIZE: %ld\n", header_size);
 
@@ -386,8 +370,7 @@ WavHeaders read_wav_headers(FILE * fp) {
     headers.bits_per_sample = (int) bits_per_sample;
     /* headers.extra_params_size = (int) extra_params_size; */
     headers.extra_params = extra_params;
-    headers.sub_chunk2_size = (int) sub_chunk2_size;
-    headers.list_chunk_data = list_chunk;
+    headers.extra_params_size = (long) extra_params_size;
     headers.header_size = (long) header_size;
     headers.data_header = data_header; /* (int) header_size; */
     headers.data_chunk_size = (int) data_chunk_size;
@@ -517,7 +500,8 @@ WavFile read_frames(FILE * fp) {
     wav_file.headers = headers;
     wav_file.frames = frames;
     wav_file.num_frames = num_samples;
-    wav_file.unscaled_frames=unscaled_frames;
+    wav_file.unscaled_frames = unscaled_frames;
+    printf("NUM_FRAMES %lu\n", wav_file.num_frames);
     return wav_file;
 }
 
@@ -602,9 +586,6 @@ void write_wav(FILE * fp, WavFile file){
     fwrite(&file.headers.block_align, 2, 1, fp);
     fwrite(&file.headers.bits_per_sample, 2, 1, fp);
     fwrite(file.headers.extra_params, 1, 4, fp);
-    fwrite(&file.headers.sub_chunk2_size, 4, 1, fp);
-    fwrite(file.headers.list_chunk_data, 1,file.headers.sub_chunk2_size , fp);
-
 
     /* Marks the start of the data */
     fwrite(file.headers.data_header, 1, 4, fp);

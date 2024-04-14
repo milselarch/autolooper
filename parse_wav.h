@@ -16,7 +16,7 @@ typedef struct {
     each floating point number amplitude sample
      */
     long bits_per_sample;
-    /* long extra_params_size; */
+    long extra_params_size;
     char * extra_params;
 
     long sub_chunk2_size;
